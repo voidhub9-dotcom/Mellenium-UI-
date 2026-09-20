@@ -1216,6 +1216,7 @@
                     Parent = library[ "mobile_toggle" ];
                     Name = "\0";
                     Active = true;
+                    Selectable = false;
                     AutoButtonColor = false;
                     BackgroundColor3 = cfg.mobile_toggle_background;
                     BackgroundTransparency = cfg.mobile_toggle_transparency;
@@ -1284,6 +1285,12 @@
                     drag_start = input.Position
                     button_start = mobile_button.AbsolutePosition
                     dragged = false
+
+                    library:connection(input.Changed, function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            finish_press(input)
+                        end
+                    end)
                 end)
 
                 library:connection(mobile_button.InputChanged, function(input)
