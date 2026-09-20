@@ -1,9 +1,8 @@
 --[[
 
-    Milenium Library
-    -> Made by @finobe 
-    -> Kind of got bored idk what to do with life
-    -> Idk who or why this got leaked, ui was VERY popular and high in demand with customers
+    VoidHub UI
+    -> Original implementation by @finobe
+    -> Adapted for VoidHub
 ]]
 
 -- Variables 
