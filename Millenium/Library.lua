@@ -2404,6 +2404,10 @@
                     return data:open()
                 end
 
+                tab_items[ "button" ].Activated:Connect(function()
+                    data:open()
+                end)
+
                 data = setmetatable(data, library)
                 cfg.tabs[#cfg.tabs + 1] = data
 
