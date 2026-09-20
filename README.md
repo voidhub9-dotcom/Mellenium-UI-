@@ -39,6 +39,7 @@ local window = library:window({
     gameInfo = "VoidHub UI",
 
     autoDPI = true,
+    autoMinimize = {width = 900, height = 600},
     customSize = {width = 760, height = 600},
     dpiScale = 1,
     minDPI = 0.55,
@@ -52,6 +53,8 @@ Sizing options:
 - `customSize` accepts `{width = 760, height = 600}` or a `UDim2`.
 - `width` and `height` can be used instead of `customSize`.
 - `autoDPI = false` keeps the window at its configured scale.
+- `autoMinimize` can be `true` or `{width = 900, height = 600}`; on small screens it starts the menu hidden and the menu key can reopen it.
+- `minimizeWidth` and `minimizeHeight` configure the auto-minimize thresholds.
 - `dpiScale` is a manual multiplier applied before the automatic scale.
 - `minDPI` and `maxDPI` limit the automatic scale.
 - `dpiReference` sets the resolution treated as 1x scale.
@@ -64,6 +67,7 @@ window:set_size({width = 760, height = 600})
 window:set_auto_dpi(false)
 window:set_auto_dpi(true)
 window:update_dpi()
+window:update_auto_minimize()
 ```
 
 The current scale is available through `window.current_dpi`.
@@ -240,7 +244,9 @@ Call this after creating the complete window:
 library:init_config(window)
 ```
 
-## Complete starter example
+## Complete group-box and sub-tab example
+
+Each sub-tab can have its own full 2×2 group-box layout. Every returned box is a normal section, so controls work inside all four positions.
 
 ```lua
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/voidhub9-dotcom/Mellenium-UI-/refs/heads/main/Millenium/Library.lua"))()
@@ -250,24 +256,103 @@ local window = library:window({
     suffix = "UI",
     gameInfo = "VoidHub UI",
     autoDPI = true,
-    customSize = {width = 700, height = 565}
+    autoMinimize = {width = 900, height = 600},
+    customSize = {width = 760, height = 600}
 })
-window:seperator({name = "Main"})
-local main = window:tab({name = "Main", tabs = {"Home"}})
-local column = main:column({})
-local section = column:section({name = "Controls", default = true})
 
-section:label({name = "Welcome", info = "VoidHub UI is loaded."})
-section:toggle({
-    name = "Example toggle",
+window:seperator({name = "Main"})
+
+-- These are sub-tabs inside the Main tab.
+local combat, visuals, settings = window:tab({
+    name = "Main",
+    icon = "rbxassetid://6034767608",
+    tabs = {"Combat", "Visuals", "Settings"}
+})
+
+local combatBoxes = combat:groupboxes({
+    boxes = {
+        {name = "Auto Farm", icon = "rbxassetid://6034767608"},
+        {name = "Targeting", icon = "rbxassetid://6022668898"},
+        {name = "Movement", icon = "rbxassetid://129380150574313"},
+        {name = "Combat Settings", icon = "rbxassetid://139628202576511"}
+    }
+})
+
+combatBoxes.top_left:toggle({
+    name = "Enable auto farm",
     seperator = true,
-    callback = function(value)
-        print("Toggle:", value)
+    callback = function(enabled)
+        print("Auto farm:", enabled)
     end
+})
+
+combatBoxes.top_left:dropdown({
+    name = "Farm target",
+    items = {"Enemies", "Bosses", "Players"},
+    default = "Enemies"
+})
+
+combatBoxes.top_right:slider({
+    name = "Farm distance",
+    min = 25,
+    max = 500,
+    interval = 5
+})
+
+combatBoxes.bottom_left:colorpicker({name = "Target color"})
+
+combatBoxes.bottom_right:keybind({
+    name = "Combat key",
+    callback = function(value)
+        print("Combat key:", value)
+    end
+})
+
+local visualBoxes = visuals:groupbox_grid({
+    boxes = {
+        {name = "ESP", icon = "rbxassetid://6022668898"},
+        {name = "Players", icon = "rbxassetid://129380150574313"},
+        {name = "World", icon = "rbxassetid://6022668898"},
+        {name = "Performance", icon = "rbxassetid://139628202576511"}
+    }
+})
+
+visualBoxes.top_left:toggle({name = "Enable ESP", seperator = true})
+visualBoxes.top_right:dropdown({
+    name = "ESP mode",
+    items = {"Box", "Highlight", "Tracer"},
+    default = "Box"
+})
+visualBoxes.bottom_left:toggle({name = "Player names", seperator = true})
+visualBoxes.bottom_right:button({
+    name = "Refresh visuals",
+    callback = function()
+        print("Visuals refreshed")
+    end
+})
+
+-- The Settings sub-tab is another independent group-box page.
+local settingsBoxes = settings:group_boxes({
+    boxes = {
+        {name = "Interface"},
+        {name = "Theme"},
+        {name = "Profile"},
+        {name = "About"}
+    }
+})
+
+settingsBoxes.top_left:keybind({name = "Menu bind"})
+settingsBoxes.top_right:colorpicker({name = "Accent color"})
+settingsBoxes.bottom_left:textbox({name = "Profile name"})
+settingsBoxes.bottom_right:label({
+    name = "VoidHub UI",
+    info = "All four group boxes support normal controls."
 })
 
 library:init_config(window)
 ```
+
+The complete version of this example is in [Example.lua](Millenium/Example.lua).
 
 ## Repository files
 
