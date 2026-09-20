@@ -1995,31 +1995,48 @@
 
             local function definition(key, index, fallback_name)
                 local value = definitions[key] or definitions[index] or properties[key]
-
-                if type(value) == "string" then
-                    return {name = value}
-                end
-
-                if type(value) ~= "table" then
-                    return {name = fallback_name}
-                end
-
                 local options = {}
-                for option, option_value in value do
-                    options[option] = option_value
+
+                if type(value) == "table" then
+                    for option, option_value in value do
+                        options[option] = option_value
+                    end
+                elseif type(value) == "string" then
+                    options.name = value
+                else
+                    options.name = fallback_name
                 end
 
                 options.name = options.name or options.Name or fallback_name
-                 if options.auto_size == nil and options.autoSize == nil and properties.auto_size ~= nil then
-                     options.auto_size = properties.auto_size
-                 end
-                 if options.max_height == nil and options.maxHeight == nil then
-                     options.max_height = properties.max_height or properties.maxHeight
-                 end
-                 options.size = options.size or options.Size or 1
-                 if options.default == nil and options.Default == nil then
-                     options.default = true
-                 end
+
+                local shared_auto_size = properties.auto_size
+                if shared_auto_size == nil then
+                    shared_auto_size = properties.autoSize
+                end
+                if options.auto_size == nil and options.autoSize == nil and shared_auto_size ~= nil then
+                    options.auto_size = shared_auto_size
+                end
+
+                local shared_min_height = properties.min_height
+                if shared_min_height == nil then
+                    shared_min_height = properties.minHeight
+                end
+                if options.min_height == nil and options.minHeight == nil and shared_min_height ~= nil then
+                    options.min_height = shared_min_height
+                end
+
+                local shared_max_height = properties.max_height
+                if shared_max_height == nil then
+                    shared_max_height = properties.maxHeight
+                end
+                if options.max_height == nil and options.maxHeight == nil and shared_max_height ~= nil then
+                    options.max_height = shared_max_height
+                end
+
+                options.size = options.size or options.Size or 1
+                if options.default == nil and options.Default == nil then
+                    options.default = true
+                end
 
                 return options
             end
