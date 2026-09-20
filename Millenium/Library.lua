@@ -2442,6 +2442,18 @@
             return setmetatable(cfg, library)
         end
 
+        function library:add_tabbox(properties)
+            return self:tabbox(properties)
+        end
+
+        function library:AddTabbox(properties)
+            return self:tabbox(properties)
+        end
+
+        function library:addTabbox(properties)
+            return self:tabbox(properties)
+        end
+
         function library:groupbox(properties)
             properties = properties or {}
 
