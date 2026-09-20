@@ -195,6 +195,41 @@ Group-box layout behavior:
 - Every group box uses the same control APIs, including dropdowns, sliders, color pickers, keybinds, textboxes, and buttons.
 - Use `scroll = false` to disable column scrolling, or `autoSize = false` with `size` when a fixed-height section is needed.
 
+### Collapse group boxes
+
+Group boxes are collapsible by default, matching the reference layout. Use \`collapsed = true\` to start one minimized, or disable the header collapse control with \`disableCollapsing = true\`.
+
+\`\`\`lua
+local box = boxes.top_left
+box:set_collapsed(true)
+box:toggle_collapsed()
+box:SetCollapsed(false)
+\`\`\`
+
+The header stays visible while the controls are hidden, so the column reflows without leaving a large blank panel. \`box:show()\` and \`box:hide()\` control visibility independently.
+
+### Nested tabboxes
+
+A group box can contain a nested tabbox. Each nested tab has its own normal control layout, including dropdowns, sliders, toggles, color pickers, textboxes, labels, buttons, and keybinds.
+
+\`\`\`lua
+local tabs = boxes.bottom_right:AddTabbox({name = "Target modes"})
+
+local target = tabs:AddTab({
+    name = "Target",
+    icon = "rbxassetid://129380150574313"
+})
+target:dropdown({
+    name = "Target mode",
+    items = {"Nearest", "Lowest health", "Crosshair"},
+    default = "Nearest"
+})
+
+local filters = tabs:AddTab("Filters", "rbxassetid://6022668898")
+filters:toggle({name = "Players only"})
+filters:colorpicker({name = "Filter color"})
+\`\`\`
+
 Aliases are also available: `topLeft`, `topRight`, `bottomLeft`, and `bottomRight`.
 
 For one standalone group box, use:
