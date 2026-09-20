@@ -245,19 +245,22 @@
                 if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
                     local viewport_x = camera.ViewportSize.X
                     local viewport_y = camera.ViewportSize.Y
+                    local scale_object = frame:FindFirstChildOfClass("UIScale")
+                    local ui_scale = scale_object and scale_object.Scale or 1
+                    ui_scale = ui_scale > 0 and ui_scale or 1
 
                     local current_size = dim2(
                         start_size.X.Scale,
                         math.clamp(
-                            start_size.X.Offset + (input.Position.X - start.X),
+                            start_size.X.Offset + (input.Position.X - start.X) / ui_scale,
                             og_size.X.Offset,
-                            viewport_x
+                            viewport_x / ui_scale
                         ),
                         start_size.Y.Scale,
                         math.clamp(
-                            start_size.Y.Offset + (input.Position.Y - start.Y),
+                            start_size.Y.Offset + (input.Position.Y - start.Y) / ui_scale,
                             og_size.Y.Offset,
-                            viewport_y
+                            viewport_y / ui_scale
                         )
                     )
 
@@ -494,11 +497,83 @@
     
     -- Library element functions
         function library:window(properties)
+            properties = properties or {}
+
+            local function resolve_window_size(value, fallback_width, fallback_height)
+                if typeof(value) == "UDim2" then
+                    return value
+                end
+
+                if type(value) == "table" then
+                    local width = tonumber(value.width or value.Width or value.x or value.X or value[1])
+                    local height = tonumber(value.height or value.Height or value.y or value.Y or value[2])
+
+                    if width or height then
+                        return dim2(0, width or fallback_width, 0, height or fallback_height)
+                    end
+                end
+
+                return nil
+            end
+
+            local default_width = 700
+            local default_height = 565
+            local requested_size = properties.custom_size or properties.customSize or properties.CustomSize or properties.size or properties.Size
+            local resolved_size = resolve_window_size(requested_size, default_width, default_height)
+
+            if not resolved_size then
+                resolved_size = dim2(
+                    0,
+                    tonumber(properties.width or properties.Width) or default_width,
+                    0,
+                    tonumber(properties.height or properties.Height) or default_height
+                )
+            end
+
+            local auto_dpi = properties.auto_dpi
+            if auto_dpi == nil then
+                auto_dpi = properties.autoDPI
+            end
+            if auto_dpi == nil then
+                auto_dpi = true
+            end
+
+            local dpi_scale = tonumber(properties.dpi_scale or properties.dpiScale or properties.scale or properties.Scale) or 1
+            local dpi_min = tonumber(properties.min_dpi or properties.minDPI or properties.min_scale or properties.minScale) or 0.55
+            local dpi_max = tonumber(properties.max_dpi or properties.maxDPI or properties.max_scale or properties.maxScale) or 1.15
+            local dpi_reference = properties.dpi_reference or properties.dpiReference or properties.referenceResolution or properties.ReferenceResolution
+            local reference_width = 1920
+            local reference_height = 1080
+
+            if typeof(dpi_reference) == "Vector2" then
+                reference_width = dpi_reference.X
+                reference_height = dpi_reference.Y
+            elseif type(dpi_reference) == "table" then
+                reference_width = tonumber(dpi_reference.width or dpi_reference.Width or dpi_reference.x or dpi_reference.X or dpi_reference[1]) or reference_width
+                reference_height = tonumber(dpi_reference.height or dpi_reference.Height or dpi_reference.y or dpi_reference.Y or dpi_reference[2]) or reference_height
+            end
+
+            reference_width = tonumber(properties.dpi_reference_width or properties.dpiReferenceWidth) or reference_width
+            reference_height = tonumber(properties.dpi_reference_height or properties.dpiReferenceHeight) or reference_height
+
+            dpi_scale = max(0.1, dpi_scale)
+            reference_width = max(1, reference_width)
+            reference_height = max(1, reference_height)
+
+            local lower_dpi = max(0.1, min(dpi_min, dpi_max))
+            local upper_dpi = max(lower_dpi, dpi_max)
+
             local cfg = { 
-                suffix = properties.suffix or properties.Suffix or "tech";
-                name = properties.name or properties.Name or "nebula";
-                game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "Milenium for Counter-Strike: Global Offensive";
-                size = properties.size or properties.Size or dim2(0, 700, 0, 565);
+                suffix = properties.suffix or properties.Suffix or "UI";
+                name = properties.name or properties.Name or "VoidHub";
+                game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI";
+                size = resolved_size;
+                auto_dpi = auto_dpi ~= false;
+                dpi_scale = dpi_scale;
+                dpi_min = lower_dpi;
+                dpi_max = upper_dpi;
+                dpi_reference = vec2(reference_width, reference_height);
+                current_dpi = 1;
                 selected_tab;
                 items = {};
 
@@ -530,7 +605,93 @@
                     BorderColor3 = rgb(0, 0, 0);
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(14, 14, 16)
-                }); items[ "main" ].Position = dim2(0, items[ "main" ].AbsolutePosition.X, 0, items[ "main" ].AbsolutePosition.Y)
+                });
+
+                items[ "dpi_scale" ] = library:create( "UIScale" , {
+                    Parent = items[ "main" ];
+                    Scale = 1
+                });
+
+                local function center_main()
+                    if not items[ "main" ] or not items[ "main" ].Parent then
+                        return
+                    end
+
+                    local absolute_size = items[ "main" ].AbsoluteSize
+                    items[ "main" ].Position = dim2(0.5, -absolute_size.X / 2, 0.5, -absolute_size.Y / 2)
+                end
+
+                function cfg:update_dpi()
+                    local scale = self.dpi_scale
+                    local current_camera = ws.CurrentCamera or camera
+
+                    if self.auto_dpi and current_camera then
+                        local viewport = current_camera.ViewportSize
+                        local viewport_scale = min(
+                            viewport.X / self.dpi_reference.X,
+                            viewport.Y / self.dpi_reference.Y
+                        )
+
+                        scale = clamp(viewport_scale * self.dpi_scale, self.dpi_min, self.dpi_max)
+                    end
+
+                    items[ "dpi_scale" ].Scale = scale
+                    self.current_dpi = scale
+                    task.defer(center_main)
+
+                    return scale
+                end
+
+                function cfg:set_size(width, height)
+                    local new_size = resolve_window_size(width, self.size.X.Offset or 700, self.size.Y.Offset or 565)
+
+                    if not new_size then
+                        new_size = dim2(
+                            0,
+                            tonumber(width) or self.size.X.Offset or 700,
+                            0,
+                            tonumber(height) or self.size.Y.Offset or 565
+                        )
+                    end
+
+                    self.size = new_size
+                    items[ "main" ].Size = new_size
+                    task.defer(center_main)
+
+                    return new_size
+                end
+
+                function cfg:set_auto_dpi(enabled)
+                    self.auto_dpi = enabled == true
+                    return self:update_dpi()
+                end
+
+                local dpi_camera_connection
+                local function bind_dpi_camera(new_camera)
+                    if dpi_camera_connection then
+                        dpi_camera_connection:Disconnect()
+                    end
+
+                    if not new_camera then
+                        return
+                    end
+
+                    camera = new_camera
+                    dpi_camera_connection = library:connection(
+                        new_camera:GetPropertyChangedSignal("ViewportSize"),
+                        function()
+                            cfg:update_dpi()
+                        end
+                    )
+
+                    cfg:update_dpi()
+                end
+
+                library:connection(ws:GetPropertyChangedSignal("CurrentCamera"), function()
+                    bind_dpi_camera(ws.CurrentCamera)
+                end)
+
+                bind_dpi_camera(camera)
                 
                 library:create( "UICorner" , {
                     Parent = items[ "main" ];
