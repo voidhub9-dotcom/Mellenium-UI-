@@ -406,7 +406,7 @@
                     return
                 end
 
-                local delta = input.Position - drag_start
+                local delta = vec2(input.Position.X - drag_start.X, input.Position.Y - drag_start.Y)
                 if abs(delta.X) < 3 and abs(delta.Y) < 3 then
                     return
                 end
@@ -1314,7 +1314,7 @@
                         return
                     end
 
-                    local delta = input.Position - drag_start
+                    local delta = vec2(input.Position.X - drag_start.X, input.Position.Y - drag_start.Y)
                     if abs(delta.X) > 8 or abs(delta.Y) > 8 then
                         dragged = true
                     end
