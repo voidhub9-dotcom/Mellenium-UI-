@@ -213,63 +213,113 @@
 
         function library:resizify(frame) 
             local Frame = Instance.new("TextButton")
-            Frame.Position = dim2(1, -10, 1, -10)
+            Frame.Position = dim2(1, -20, 1, -20)
             Frame.BorderColor3 = rgb(0, 0, 0)
-            Frame.Size = dim2(0, 10, 0, 10)
+            Frame.Size = dim2(0, 20, 0, 20)
             Frame.BorderSizePixel = 0
             Frame.BackgroundColor3 = rgb(255, 255, 255)
             Frame.Parent = frame
-            Frame.BackgroundTransparency = 1 
+            Frame.BackgroundTransparency = 1
             Frame.Text = ""
+            Frame.Active = true
+            Frame.Selectable = false
+            Frame.ZIndex = 20
 
-            local resizing = false 
-            local start_size 
-            local start 
-            local og_size = frame.Size  
+            local resizing = false
+            local active_input
+            local resize_input
+            local start_size
+            local start
+            local og_size = frame.Size
 
-            Frame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local function is_press(input)
+                return input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch
+            end
+
+            local function stop_resize(input)
+                if not active_input then
+                    return
+                end
+
+                if input and input ~= active_input and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                    return
+                end
+
+                resizing = false
+                active_input = nil
+                resize_input = nil
+            end
+
+            library:connection(Frame.InputBegan, function(input)
+                if is_press(input) then
                     resizing = true
+                    active_input = input
+                    resize_input = nil
                     start = input.Position
                     start_size = frame.Size
                 end
             end)
 
-            Frame.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    resizing = false
+            library:connection(Frame.InputChanged, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    resize_input = input
                 end
             end)
 
-            library:connection(uis.InputChanged, function(input, game_event) 
-                if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local viewport_x = camera.ViewportSize.X
-                    local viewport_y = camera.ViewportSize.Y
-                    local scale_object = frame:FindFirstChildOfClass("UIScale")
-                    local ui_scale = scale_object and scale_object.Scale or 1
-                    ui_scale = ui_scale > 0 and ui_scale or 1
+            library:connection(uis.InputChanged, function(input)
+                if not resizing or not active_input then
+                    return
+                end
 
-                    local current_size = dim2(
-                        start_size.X.Scale,
-                        math.clamp(
-                            start_size.X.Offset + (input.Position.X - start.X) / ui_scale,
-                            og_size.X.Offset,
-                            viewport_x / ui_scale
-                        ),
-                        start_size.Y.Scale,
-                        math.clamp(
-                            start_size.Y.Offset + (input.Position.Y - start.Y) / ui_scale,
-                            og_size.Y.Offset,
-                            viewport_y / ui_scale
-                        )
+                local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
+                    and input.UserInputType == Enum.UserInputType.MouseMovement
+                local is_touch_drag = active_input.UserInputType == Enum.UserInputType.Touch
+                    and (input == active_input or input == resize_input)
+
+                if not (is_mouse_drag or is_touch_drag) then
+                    return
+                end
+
+                local current_camera = ws.CurrentCamera or camera
+                local viewport = current_camera and current_camera.ViewportSize
+                if not viewport then
+                    return
+                end
+
+                local scale_object = frame:FindFirstChildOfClass("UIScale")
+                local ui_scale = scale_object and scale_object.Scale or 1
+                ui_scale = ui_scale > 0 and ui_scale or 1
+
+                local current_size = dim2(
+                    start_size.X.Scale,
+                    math.clamp(
+                        start_size.X.Offset + (input.Position.X - start.X) / ui_scale,
+                        og_size.X.Offset,
+                        viewport.X / ui_scale
+                    ),
+                    start_size.Y.Scale,
+                    math.clamp(
+                        start_size.Y.Offset + (input.Position.Y - start.Y) / ui_scale,
+                        og_size.Y.Offset,
+                        viewport.Y / ui_scale
                     )
+                )
 
-                    library:tween(frame, {Size = current_size}, Enum.EasingStyle.Linear, 0.05)
+                frame.Size = current_size
+            end)
+
+            library:connection(uis.InputEnded, function(input)
+                if active_input and (input == active_input
+                    or (active_input.UserInputType == Enum.UserInputType.MouseButton1
+                        and input.UserInputType == Enum.UserInputType.MouseButton1)) then
+                    stop_resize(input)
                 end
             end)
         end 
 
-        function fag(tbl)
+                function fag(tbl)
             local Size = 0
             
             for _ in tbl do
@@ -294,51 +344,106 @@
         end
 
         function library:draggify(frame)
-            local dragging = false 
-            local start_size = frame.Position
-            local start 
+            local dragging = false
+            local active_input
+            local drag_input
+            local drag_start
+            local frame_start
+            local moved = false
 
-            frame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = true
-                    start = input.Position
-                    start_size = frame.Position
+            local function is_press(input)
+                return input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch
+            end
+
+            local function stop_drag(input)
+                if not active_input then
+                    return
+                end
+
+                if input and input ~= active_input and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                    return
+                end
+
+                dragging = false
+                active_input = nil
+                drag_input = nil
+                moved = false
+            end
+
+            library:connection(frame.InputBegan, function(input)
+                if not is_press(input) then
+                    return
+                end
+
+                dragging = true
+                active_input = input
+                drag_input = nil
+                drag_start = input.Position
+                frame_start = frame.AbsolutePosition
+                moved = false
+            end)
+
+            library:connection(frame.InputChanged, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    drag_input = input
                 end
             end)
 
-            frame.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
+            library:connection(uis.InputChanged, function(input)
+                if not dragging or not active_input then
+                    return
                 end
+
+                local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
+                    and input.UserInputType == Enum.UserInputType.MouseMovement
+                local is_touch_drag = active_input.UserInputType == Enum.UserInputType.Touch
+                    and (input == active_input or input == drag_input)
+
+                if not (is_mouse_drag or is_touch_drag) then
+                    return
+                end
+
+                local delta = input.Position - drag_start
+                if abs(delta.X) < 3 and abs(delta.Y) < 3 then
+                    return
+                end
+
+                moved = true
+                local current_camera = ws.CurrentCamera or camera
+                local viewport = current_camera and current_camera.ViewportSize
+                if not viewport then
+                    return
+                end
+
+                local parent_position = vec2(0, 0)
+                local parent_size = viewport
+                local parent = frame.Parent
+                if parent and parent:IsA("GuiObject") then
+                    parent_position = parent.AbsolutePosition
+                    parent_size = parent.AbsoluteSize
+                end
+
+                local frame_size = frame.AbsoluteSize
+                local target = frame_start + delta
+                local x = clamp(target.X - parent_position.X, 0, max(0, parent_size.X - frame_size.X))
+                local y = clamp(target.Y - parent_position.Y, 0, max(0, parent_size.Y - frame_size.Y))
+
+                frame.Position = dim_offset(x, y)
+                library:close_element()
             end)
 
-            library:connection(uis.InputChanged, function(input, game_event) 
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local viewport_x = camera.ViewportSize.X
-                    local viewport_y = camera.ViewportSize.Y
-
-                    local current_position = dim2(
-                        0,
-                        clamp(
-                            start_size.X.Offset + (input.Position.X - start.X),
-                            0,
-                            viewport_x - frame.Size.X.Offset
-                        ),
-                        0,
-                        math.clamp(
-                            start_size.Y.Offset + (input.Position.Y - start.Y),
-                            0,
-                            viewport_y - frame.Size.Y.Offset
-                        )
-                    )
-
-                    library:tween(frame, {Position = current_position}, Enum.EasingStyle.Linear, 0.05)
-                    library:close_element()
+            library:connection(uis.InputEnded, function(input)
+                if active_input and (input == active_input
+                    or (active_input.UserInputType == Enum.UserInputType.MouseButton1
+                        and input.UserInputType == Enum.UserInputType.MouseButton1)) then
+                    stop_drag(input)
                 end
             end)
         end 
 
-        function library:convert(str)
+                function library:convert(str)
             local values = {}
 
             for value in string.gmatch(str, "[^,]+") do
@@ -1078,10 +1183,20 @@
                     toggle_gui.Enabled = false
                 end
 
+                local mobile_button = self.mobile_toggle_button
+                if mobile_button and viewport then
+                    local size = mobile_button.AbsoluteSize
+                    local x = clamp(mobile_button.AbsolutePosition.X, 0, max(0, viewport.X - size.X))
+                    local y = clamp(mobile_button.AbsolutePosition.Y, 0, max(0, viewport.Y - size.Y))
+                    if abs(x - mobile_button.AbsolutePosition.X) > 1 or abs(y - mobile_button.AbsolutePosition.Y) > 1 then
+                        mobile_button.Position = dim_offset(x, y)
+                    end
+                end
+
                 return toggle_gui.Enabled
             end
 
-            function cfg:set_mobile_toggle(enabled)
+                        function cfg:set_mobile_toggle(enabled)
                 self.mobile_toggle_enabled = enabled == true
                 return self:update_mobile_toggle()
             end
@@ -1126,48 +1241,73 @@
                     Thickness = 1
                 })
 
-                local dragging = false
+                local active_input
                 local drag_input
                 local drag_start
                 local button_start
                 local dragged = false
 
-                local function is_drag_input(input)
-                    return input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch
+                local function is_press(input)
+                    return input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch
                 end
 
-                library:connection(mobile_button.InputBegan, function(input)
-                    if not cfg.mobile_toggle_draggable then
+                local function finish_press(input)
+                    if not active_input then
                         return
                     end
 
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging = true
-                        drag_start = input.Position
-                        button_start = mobile_button.AbsolutePosition
-                        dragged = false
-
-                        library:connection(input.Changed, function()
-                            if input.UserInputState == Enum.UserInputState.End then
-                                dragging = false
-                            end
-                        end)
+                    if input and input ~= active_input and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                        return
                     end
+
+                    local should_toggle = not dragged
+                    active_input = nil
+                    drag_input = nil
+                    drag_start = nil
+                    button_start = nil
+                    dragged = false
+
+                    if should_toggle and library[ "mobile_toggle" ] and library[ "mobile_toggle" ].Enabled then
+                        cfg.toggle_menu(not library[ "items" ].Enabled)
+                    end
+                end
+
+                library:connection(mobile_button.InputBegan, function(input)
+                    if not is_press(input) then
+                        return
+                    end
+
+                    active_input = input
+                    drag_input = nil
+                    drag_start = input.Position
+                    button_start = mobile_button.AbsolutePosition
+                    dragged = false
                 end)
 
                 library:connection(mobile_button.InputChanged, function(input)
-                    if is_drag_input(input) then
+                    if active_input and (input.UserInputType == Enum.UserInputType.MouseMovement
+                        or input.UserInputType == Enum.UserInputType.Touch) then
                         drag_input = input
                     end
                 end)
 
                 library:connection(uis.InputChanged, function(input)
-                    if not dragging or not drag_input or input ~= drag_input then
+                    if not active_input or not cfg.mobile_toggle_draggable then
+                        return
+                    end
+
+                    local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
+                        and input.UserInputType == Enum.UserInputType.MouseMovement
+                    local is_touch_drag = active_input.UserInputType == Enum.UserInputType.Touch
+                        and (input == active_input or input == drag_input)
+
+                    if not (is_mouse_drag or is_touch_drag) then
                         return
                     end
 
                     local delta = input.Position - drag_start
-                    if abs(delta.X) > 4 or abs(delta.Y) > 4 then
+                    if abs(delta.X) > 8 or abs(delta.Y) > 8 then
                         dragged = true
                     end
 
@@ -1180,18 +1320,15 @@
                     local size = mobile_button.AbsoluteSize
                     local x = clamp(button_start.X + delta.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(button_start.Y + delta.Y, 0, max(0, viewport.Y - size.Y))
-                    mobile_button.Position = dim2(0, x, 0, y)
+                    mobile_button.Position = dim_offset(x, y)
                 end)
 
-                library:connection(mobile_button.Activated, function()
-                    if dragged then
-                        task.delay(0.1, function()
-                            dragged = false
-                        end)
-                        return
+                library:connection(uis.InputEnded, function(input)
+                    if active_input and (input == active_input
+                        or (active_input.UserInputType == Enum.UserInputType.MouseButton1
+                            and input.UserInputType == Enum.UserInputType.MouseButton1)) then
+                        finish_press(input)
                     end
-
-                    cfg.toggle_menu(not library[ "items" ].Enabled)
                 end)
 
                 library:connection(ws:GetPropertyChangedSignal("CurrentCamera"), function()
@@ -1476,7 +1613,7 @@
                             library:close_element()
 						end
 
-						multi_items[ "button" ].MouseButton1Down:Connect(function()
+						multi_items[ "button" ].Activated:Connect(function()
 							data.open_page() 
 						end)
 
@@ -1529,7 +1666,7 @@
                 library:close_element()
             end
 
-            items[ "button" ].MouseButton1Down:Connect(function()
+            items[ "button" ].Activated:Connect(function()
                 cfg.open_tab()
             end)
             
@@ -1719,8 +1856,10 @@
                 items[ "scrolling" ] = library:create( "ScrollingFrame" , {
                     ScrollBarImageColor3 = rgb(44, 44, 46);
                     Active = true;
+                    ScrollingEnabled = true;
+                    ScrollingDirection = Enum.ScrollingDirection.Y;
                     AutomaticCanvasSize = Enum.AutomaticSize.Y;
-                    ScrollBarThickness = 2;
+                    ScrollBarThickness = 4;
                     Parent = items[ "inline" ];
                     Name = "\0";
                     Size = cfg.auto_size and dim2(1, 0, 0, cfg.min_height) or dim2(1, 0, 1, -40);
@@ -1925,7 +2064,7 @@
             end;
 
             if cfg.fading_toggle then
-                items[ "button" ].MouseButton1Click:Connect(function()
+                items[ "button" ].Activated:Connect(function()
                     cfg.default = not cfg.default 
                     cfg.toggle_section(cfg.default) 
                 end)
@@ -2301,12 +2440,12 @@
                 flags[cfg.flag] = bool
             end 
             
-            items[ "toggle" ].MouseButton1Click:Connect(function()
+            items[ "toggle" ].Activated:Connect(function()
                 cfg.enabled = not cfg.enabled 
                 cfg.set(cfg.enabled)
             end)
 
-            items[ "toggle_button" ].MouseButton1Click:Connect(function()
+            items[ "toggle_button" ].Activated:Connect(function()
                 cfg.enabled = not cfg.enabled 
                 cfg.set(cfg.enabled)
             end)
@@ -2434,56 +2573,72 @@
                     BorderColor3 = rgb(0, 0, 0);
                     Text = "";
                     AutoButtonColor = false;
+                    Active = true;
+                    Selectable = false;
                     AnchorPoint = vec2(1, 0);
                     Parent = items[ "right_components" ];
                     Name = "\0";
-                    Position = dim2(1, 0, 0, 0);
-                    Size = dim2(1, -4, 0, 4);
+                    Position = dim2(1, 0, 0, -6);
+                    Size = dim2(1, -4, 0, 20);
                     BorderSizePixel = 0;
                     TextSize = 14;
-                    BackgroundColor3 = rgb(33, 33, 35)
+                    BackgroundTransparency = 1;
+                    ZIndex = 2
                 });
-                
-                library:create( "UICorner" , {
+
+                items[ "track" ] = library:create( "Frame" , {
                     Parent = items[ "slider" ];
+                    Name = "\0";
+                    Position = dim2(0, 0, 0.5, -2);
+                    Size = dim2(1, 0, 0, 4);
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = rgb(33, 33, 35);
+                    ZIndex = 2
+                });
+
+                library:create( "UICorner" , {
+                    Parent = items[ "track" ];
                     CornerRadius = dim(0, 999)
                 });
-                
+
                 items[ "fill" ] = library:create( "Frame" , {
                     Name = "\0";
-                    Parent = items[ "slider" ];
+                    Parent = items[ "track" ];
                     BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(0.5, 0, 0, 4);
+                    Size = dim2(0.5, 0, 1, 0);
                     BorderSizePixel = 0;
-                    BackgroundColor3 = themes.preset.accent
+                    BackgroundColor3 = themes.preset.accent;
+                    ZIndex = 3
                 });  library:apply_theme(items[ "fill" ], "accent", "BackgroundColor3");
-                
+
                 library:create( "UICorner" , {
                     Parent = items[ "fill" ];
                     CornerRadius = dim(0, 999)
                 });
-                
+
                 items[ "circle" ] = library:create( "Frame" , {
                     AnchorPoint = vec2(0.5, 0.5);
                     Parent = items[ "fill" ];
                     Name = "\0";
                     Position = dim2(1, 0, 0.5, 0);
                     BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(0, 12, 0, 12);
+                    Size = dim2(0, 14, 0, 14);
                     BorderSizePixel = 0;
-                    BackgroundColor3 = rgb(244, 244, 244)
+                    BackgroundColor3 = rgb(244, 244, 244);
+                    ZIndex = 4
                 });
-                
+
                 library:create( "UICorner" , {
                     Parent = items[ "circle" ];
                     CornerRadius = dim(0, 999)
                 });
-                
+
                 library:create( "UIPadding" , {
                     Parent = items[ "right_components" ];
                     PaddingTop = dim(0, 4)
                 });
-                
+
                 items[ "value" ] = library:create( "TextLabel" , {
                     FontFace = fonts.small;
                     TextColor3 = rgb(72, 72, 73);
@@ -2511,31 +2666,63 @@
             function cfg.set(value)
                 cfg.value = clamp(library:round(value, cfg.intervals), cfg.min, cfg.max)
 
-                library:tween(items[ "fill" ], {Size = dim2((cfg.value - cfg.min) / (cfg.max - cfg.min), cfg.value == cfg.min and 0 or -4, 0, 2)}, Enum.EasingStyle.Linear, 0.05)
+                library:tween(items[ "fill" ], {Size = dim2((cfg.value - cfg.min) / (cfg.max - cfg.min), cfg.value == cfg.min and 0 or -4, 1, 0)}, Enum.EasingStyle.Linear, 0.05)
                 items[ "value" ].Text = tostring(cfg.value) .. cfg.suffix
 
                 flags[cfg.flag] = cfg.value
                 cfg.callback(flags[cfg.flag])
             end
 
-            items[ "slider" ].MouseButton1Down:Connect(function()
-                cfg.dragging = true 
+            local function update_slider(position)
+                local track = items[ "track" ]
+                local width = track.AbsoluteSize.X
+                if width <= 0 then
+                    return
+                end
+
+                local size_x = clamp((position.X - track.AbsolutePosition.X) / width, 0, 1)
+                cfg.set(((cfg.max - cfg.min) * size_x) + cfg.min)
+            end
+
+            library:connection(items[ "slider" ].InputBegan, function(input)
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                    and input.UserInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+
+                cfg.dragging = true
+                cfg.drag_input = input
+                update_slider(input.Position)
                 library:tween(items[ "value" ], {TextColor3 = rgb(255, 255, 255)}, Enum.EasingStyle.Quad, 0.2)
             end)
 
             library:connection(uis.InputChanged, function(input)
-                if cfg.dragging and input.UserInputType == Enum.UserInputType.MouseMovement then 
-                    local size_x = (input.Position.X - items[ "slider" ].AbsolutePosition.X) / items[ "slider" ].AbsoluteSize.X
-                    local value = ((cfg.max - cfg.min) * size_x) + cfg.min
-                    cfg.set(value)
+                if not cfg.dragging or not cfg.drag_input then
+                    return
+                end
+
+                local is_mouse_drag = cfg.drag_input.UserInputType == Enum.UserInputType.MouseButton1
+                    and input.UserInputType == Enum.UserInputType.MouseMovement
+                local is_touch_drag = cfg.drag_input.UserInputType == Enum.UserInputType.Touch
+                    and input == cfg.drag_input
+
+                if is_mouse_drag or is_touch_drag then
+                    update_slider(input.Position)
                 end
             end)
 
             library:connection(uis.InputEnded, function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if not cfg.dragging or not cfg.drag_input then
+                    return
+                end
+
+                if input == cfg.drag_input
+                    or (cfg.drag_input.UserInputType == Enum.UserInputType.MouseButton1
+                        and input.UserInputType == Enum.UserInputType.MouseButton1) then
                     cfg.dragging = false
-                    library:tween(items[ "value" ], {TextColor3 = rgb(72, 72, 73)}, Enum.EasingStyle.Quad, 0.2) 
-                end 
+                    cfg.drag_input = nil
+                    library:tween(items[ "value" ], {TextColor3 = rgb(72, 72, 73)}, Enum.EasingStyle.Quad, 0.2)
+                end
             end)
 
             if cfg.seperator then 
@@ -2781,7 +2968,8 @@
                 
                 library:create( "UIPadding" , {
                     Parent = button;
-                    PaddingTop = dim(0, 1);
+                    PaddingTop = dim(0, 7);
+                    PaddingBottom = dim(0, 7);
                     PaddingRight = dim(0, 5);
                     PaddingLeft = dim(0, 5)
                 });
@@ -2793,7 +2981,19 @@
                 local a = bool and cfg.y_size or 0
                 library:tween(items[ "dropdown_holder" ], {Size = dim_offset(items[ "dropdown" ].AbsoluteSize.X, a)})
 
-                items[ "dropdown_holder" ].Position = dim2(0, items[ "dropdown" ].AbsolutePosition.X, 0, items[ "dropdown" ].AbsolutePosition.Y + 80)
+                local current_camera = ws.CurrentCamera or camera
+                local viewport = current_camera and current_camera.ViewportSize
+                if viewport then
+                    local holder_size = items[ "dropdown_holder" ].AbsoluteSize
+                    local trigger = items[ "dropdown" ]
+                    local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - holder_size.X - 6))
+                    local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 8
+                    if y + holder_size.Y > viewport.Y - 6 then
+                        y = trigger.AbsolutePosition.Y - holder_size.Y - 8
+                    end
+                    y = clamp(y, 6, max(6, viewport.Y - holder_size.Y - 6))
+                    items[ "dropdown_holder" ].Position = dim_offset(x, y)
+                end
                 if not (self.sanity and library.current_open == self) then 
                     library:close_element(cfg)
                 end
@@ -2833,7 +3033,7 @@
                     cfg.y_size += button.AbsoluteSize.Y + 6 -- super annoying manual sizing but oh well
                     insert(cfg.option_instances, button)
                     
-                    button.MouseButton1Down:Connect(function()
+                    button.Activated:Connect(function()
                         if cfg.multi then 
                             local selected_index = find(cfg.multi_items, button.Text)
                             
@@ -2854,7 +3054,7 @@
                 end
             end
 
-            items[ "dropdown" ].MouseButton1Click:Connect(function()
+            items[ "dropdown" ].Activated:Connect(function()
                 cfg.open = not cfg.open 
                 
                 cfg.set_visible(cfg.open)
@@ -3158,11 +3358,11 @@
                         BorderColor3 = rgb(0, 0, 0);
                         AutoButtonColor = false;
                         Text = "";
-                        AnchorPoint = vec2(0, 1);
+                        AnchorPoint = vec2(0, 0);
                         Parent = items[ "saturation_holder" ];
                         Name = "\0";
-                        Position = dim2(0, 0, 4, 0);
-                        Size = dim2(0, 8, 0, 8);
+                        Position = dim2(0, 0, 0, 0);
+                        Size = dim2(0, 14, 0, 14);
                         ZIndex = 5;
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(255, 0, 0)
@@ -3184,7 +3384,7 @@
                         Name = "\0";
                         Position = dim2(0, 10, 1, -64);
                         BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -20, 0, 8);
+                        Size = dim2(1, -20, 0, 14);
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(255, 255, 255);
                         AutoButtonColor = false;
@@ -3209,7 +3409,7 @@
                         Parent = items[ "hue_gradient" ];
                         Name = "\0";
                         Position = dim2(0, 0, 0.5, 0);
-                        Size = dim2(0, 8, 0, 8);
+                        Size = dim2(0, 12, 0, 12);
                         ZIndex = 5;
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(255, 0, 0)
@@ -3231,7 +3431,7 @@
                         Name = "\0";
                         Position = dim2(0, 10, 1, -46);
                         BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -20, 0, 8);
+                        Size = dim2(1, -20, 0, 14);
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(25, 25, 29);
                         AutoButtonColor = false;
@@ -3251,7 +3451,7 @@
                         Parent = items[ "alpha_gradient" ];
                         Name = "\0";
                         Position = dim2(1, 0, 0.5, 0);
-                        Size = dim2(0, 8, 0, 8);
+                        Size = dim2(0, 12, 0, 12);
                         ZIndex = 5;
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(255, 0, 0)
@@ -3339,7 +3539,19 @@
             function cfg.set_visible(bool)
                 items[ "colorpicker_fade" ].BackgroundTransparency = 0
                 items[ "colorpicker_holder" ].Parent = bool and library[ "items" ] or library[ "other" ]
-                items[ "colorpicker_holder" ].Position = dim_offset(items[ "colorpicker" ].AbsolutePosition.X, items[ "colorpicker" ].AbsolutePosition.Y + items[ "colorpicker" ].AbsoluteSize.Y + 45)
+                local current_camera = ws.CurrentCamera or camera
+                local viewport = current_camera and current_camera.ViewportSize
+                if viewport then
+                    local holder_size = items[ "colorpicker_holder" ].AbsoluteSize
+                    local trigger = items[ "colorpicker" ]
+                    local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - holder_size.X - 6))
+                    local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 8
+                    if y + holder_size.Y > viewport.Y - 6 then
+                        y = trigger.AbsolutePosition.Y - holder_size.Y - 8
+                    end
+                    y = clamp(y, 6, max(6, viewport.Y - holder_size.Y - 6))
+                    items[ "colorpicker_holder" ].Position = dim_offset(x, y)
+                end
 
                 library:tween(items[ "colorpicker_fade" ], {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, 0.4)
                 library:tween(items[ "colorpicker_holder" ], {Position = items[ "colorpicker_holder" ].Position + dim_offset(0, 20)}) -- p100 check
@@ -3368,7 +3580,7 @@
                 -- Also further note, yeah I kind of did this scale_factor * size-valuesize.plane because then I would have to do tomfoolery to make it clip properly.
                 library:tween(items[ "hue_picker" ], {Position = dim2(0, (items[ "hue_gradient" ].AbsoluteSize.X - items[ "hue_picker" ].AbsoluteSize.X) * h, 0.5, 0)}, Enum.EasingStyle.Linear, 0.05)
                 library:tween(items[ "alpha_picker" ], {Position = dim2(0, (items[ "alpha_gradient" ].AbsoluteSize.X - items[ "alpha_picker" ].AbsoluteSize.X) * (1 - a), 0.5, 0)}, Enum.EasingStyle.Linear, 0.05)
-                library:tween(items[ "satvalpicker" ], {Position = dim2(0, s * (items[ "saturation_holder" ].AbsoluteSize.X - items[ "satvalpicker" ].AbsoluteSize.X), 1, 1 - v * (items[ "saturation_holder" ].AbsoluteSize.Y - items[ "satvalpicker" ].AbsoluteSize.Y))}, Enum.EasingStyle.Linear, 0.05)
+                library:tween(items[ "satvalpicker" ], {Position = dim2(0, s * max(0, items[ "saturation_holder" ].AbsoluteSize.X - items[ "satvalpicker" ].AbsoluteSize.X), 0, (1 - v) * max(0, items[ "saturation_holder" ].AbsoluteSize.Y - items[ "satvalpicker" ].AbsoluteSize.Y))}, Enum.EasingStyle.Linear, 0.05)
 
                 items[ "alpha_indicator" ]:FindFirstChildOfClass("UIGradient").Color = rgbseq{rgbkey(0, rgb(112, 112, 112)), rgbkey(1, hsv(h, 1, 1))}; -- shit code
                 
@@ -3392,11 +3604,11 @@
                 cfg.callback(Color, a)
             end
             
-            function cfg.update_color() 
-                local mouse = uis:GetMouseLocation() 
-                local offset = vec2(mouse.X, mouse.Y - gui_offset) 
+            function cfg.update_color(position)
+                local location = position or uis:GetMouseLocation()
+                local offset = vec2(location.X, location.Y - gui_offset)
 
-                if dragging_sat then	
+                if dragging_sat then
                     s = math.clamp((offset - items["sat"].AbsolutePosition).X / items["sat"].AbsoluteSize.X, 0, 1)
                     v = 1 - math.clamp((offset - items["sat"].AbsolutePosition).Y / items["sat"].AbsoluteSize.Y, 0, 1)
                 elseif dragging_hue then
@@ -3408,36 +3620,66 @@
                 cfg.set()
             end
 
-            items[ "colorpicker" ].MouseButton1Click:Connect(function()
-                cfg.open = not cfg.open 
-
-                cfg.set_visible(cfg.open)            
+            items[ "colorpicker" ].Activated:Connect(function()
+                cfg.open = not cfg.open
+                cfg.set_visible(cfg.open)
             end)
 
-            uis.InputChanged:Connect(function(input)
-                if (dragging_sat or dragging_hue or dragging_alpha) and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    cfg.update_color() 
+            local color_drag_input
+
+            local function begin_color_drag(kind, input)
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                    and input.UserInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+
+                dragging_sat = kind == "sat"
+                dragging_hue = kind == "hue"
+                dragging_alpha = kind == "alpha"
+                color_drag_input = input
+                cfg.update_color(input.Position)
+            end
+
+            library:connection(items[ "alpha_gradient" ].InputBegan, function(input)
+                begin_color_drag("alpha", input)
+            end)
+
+            library:connection(items[ "hue_gradient" ].InputBegan, function(input)
+                begin_color_drag("hue", input)
+            end)
+
+            library:connection(items[ "sat" ].InputBegan, function(input)
+                begin_color_drag("sat", input)
+            end)
+
+            library:connection(uis.InputChanged, function(input)
+                if not color_drag_input then
+                    return
+                end
+
+                local is_mouse_drag = color_drag_input.UserInputType == Enum.UserInputType.MouseButton1
+                    and input.UserInputType == Enum.UserInputType.MouseMovement
+                local is_touch_drag = color_drag_input.UserInputType == Enum.UserInputType.Touch
+                    and input == color_drag_input
+
+                if is_mouse_drag or is_touch_drag then
+                    cfg.update_color(input.Position)
                 end
             end)
 
             library:connection(uis.InputEnded, function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if not color_drag_input then
+                    return
+                end
+
+                if input == color_drag_input
+                    or (color_drag_input.UserInputType == Enum.UserInputType.MouseButton1
+                        and input.UserInputType == Enum.UserInputType.MouseButton1) then
                     dragging_sat = false
                     dragging_hue = false
                     dragging_alpha = false
+                    color_drag_input = nil
                 end
-            end)    
-
-            items[ "alpha_gradient" ].MouseButton1Down:Connect(function()
-                dragging_alpha = true 
-            end)
-            
-            items[ "hue_gradient" ].MouseButton1Down:Connect(function()
-                dragging_hue = true 
-            end)
-            
-            items[ "sat" ].MouseButton1Down:Connect(function()
-                dragging_sat = true  
             end)
 
             items[ "input" ].FocusLost:Connect(function()
@@ -3791,7 +4033,7 @@
                             PaddingLeft = dim(0, 5)
                         });
 
-                        name.MouseButton1Click:Connect(function()
+                        name.Activated:Connect(function()
                             cfg.set(option)
 
                             cfg.set_visible(false)
@@ -3876,7 +4118,7 @@
                 items[ "dropdown" ].Position = dim_offset(items[ "keybind_holder" ].AbsolutePosition.X, items[ "keybind_holder" ].AbsolutePosition.Y + items[ "keybind_holder" ].AbsoluteSize.Y + 60)
             end
         
-            items[ "keybind_holder" ].MouseButton1Down:Connect(function()
+            items[ "keybind_holder" ].Activated:Connect(function()
                 task.wait()
                 items[ "key" ].Text = "..."	
 
@@ -3985,7 +4227,7 @@
                 }); library:apply_theme(items[ "name" ], "accent", "BackgroundColor3");                            
             end 
 
-            items[ "button" ].MouseButton1Click:Connect(function()
+            items[ "button" ].Activated:Connect(function()
                 cfg.callback()
 
                 items[ "name" ].TextColor3 = themes.preset.accent 
@@ -4081,7 +4323,7 @@
                 library:close_element(cfg)
             end
             
-            items[ "tick" ].MouseButton1Click:Connect(function()
+            items[ "tick" ].Activated:Connect(function()
                 cfg.open = not cfg.open
 
                 cfg.set_visible(cfg.open)
@@ -4167,7 +4409,7 @@
                         CornerRadius = dim(0, 3)
                     });     
 
-                    button.MouseButton1Click:Connect(function()
+                    button.Activated:Connect(function()
                         local current = cfg.current_element 
                         if current and current ~= name then 
                             library:tween(current, {TextColor3 = rgb(72, 72, 72)})
