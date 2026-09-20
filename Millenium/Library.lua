@@ -1834,16 +1834,47 @@
             local min_height = tonumber(properties.min_height or properties.minHeight) or 0
             local max_height = tonumber(properties.max_height or properties.maxHeight) or 300
 
+            local collapse_setting = properties.collapsible
+            if collapse_setting == nil then
+                collapse_setting = properties.Collapsible
+            end
+            if collapse_setting == nil then
+                collapse_setting = properties.toggle
+            end
+            if collapse_setting == nil then
+                collapse_setting = properties.Toggle
+            end
+
+            local disable_collapsing = properties.disable_collapsing
+            if disable_collapsing == nil then
+                disable_collapsing = properties.disableCollapsing
+            end
+            if disable_collapsing == true then
+                collapse_setting = false
+            end
+            if collapse_setting == nil then
+                collapse_setting = false
+            end
+
+            local collapsed_setting = properties.collapsed
+            if collapsed_setting == nil then
+                collapsed_setting = properties.Collapsed
+            end
+
             local cfg = {
                 name = properties.name or properties.Name or "section"; 
                 side = properties.side or properties.Side or "left";
+                description = properties.description or properties.Description;
                 default = properties.default or properties.Default or false;
                 size = properties.size or properties.Size or self.size or 0.5; 
-                icon = properties.icon or properties.Icon or "http://www.roblox.com/asset/?id=6022668898";
+                icon = properties.icon or properties.Icon or properties.IconName or "http://www.roblox.com/asset/?id=6022668898";
                 fading_toggle = properties.fading or properties.Fading or false;
+                collapsible = collapse_setting == true;
+                collapsed = collapsed_setting == true;
                 auto_size = auto_size == true;
                 min_height = max(0, min_height);
                 max_height = max(max(0, min_height), max_height);
+                expanded_height = max(0, min_height);
                 items = {};
             };
             
@@ -1854,6 +1885,7 @@
                     BorderColor3 = rgb(0, 0, 0);
                     Size = cfg.auto_size and dim2(0, 0, 0, 37 + cfg.min_height) or dim2(0, 0, cfg.size, -3);
                     BorderSizePixel = 0;
+                    ClipsDescendants = true;
                     BackgroundColor3 = rgb(25, 25, 29)
                 });
 
@@ -1869,6 +1901,7 @@
                     BorderColor3 = rgb(0, 0, 0);
                     Size = dim2(1, -2, 1, -2);
                     BorderSizePixel = 0;
+                    ClipsDescendants = true;
                     BackgroundColor3 = rgb(22, 22, 24)
                 });
                 
@@ -1918,14 +1951,19 @@
                     Parent = items[ "elements" ]
                 });
 
+            cfg.expanded_size = items[ "outline" ].Size
+
                 if cfg.auto_size then
                     function cfg:update_size()
                         local content_height = items[ "elements_layout" ].AbsoluteContentSize.Y
                         local desired_height = max(cfg.min_height, content_height + 20)
                         local visible_height = min(desired_height, cfg.max_height)
 
+                        cfg.expanded_height = visible_height
                         items[ "scrolling" ].Size = dim2(1, 0, 0, visible_height)
-                        items[ "outline" ].Size = dim2(0, 0, 0, visible_height + 37)
+                        if not cfg.collapsed then
+                            items[ "outline" ].Size = dim2(0, 0, 0, visible_height + 37)
+                        end
 
                         return visible_height
                     end
@@ -2007,6 +2045,25 @@
                     BackgroundColor3 = rgb(36, 36, 37)
                 });
                 
+            if cfg.collapsible then
+                items[ "collapse" ] = library:create( "TextLabel" , {
+                    FontFace = fonts.font;
+                    TextColor3 = rgb(145, 145, 145);
+                    Text = cfg.collapsed and "+" or "-";
+                    Parent = items[ "button" ];
+                    Name = "CollapseIndicator";
+                    AnchorPoint = vec2(1, 0.5);
+                    Position = dim2(1, cfg.fading_toggle and -56 or -10, 0.5, 0);
+                    Size = dim2(0, 22, 0, 22);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    TextSize = 18;
+                    TextXAlignment = Enum.TextXAlignment.Center;
+                    TextYAlignment = Enum.TextYAlignment.Center;
+                    BackgroundColor3 = rgb(255, 255, 255)
+                });
+            end
+
                 if cfg.fading_toggle then 
                     items[ "toggle" ] = library:create( "TextButton" , {
                         FontFace = fonts.small;
@@ -2101,6 +2158,77 @@
                 end 
             end 
 
+
+            function cfg:set_collapsed(value)
+                if not cfg.collapsible then
+                    cfg.collapsed = false
+                    return false
+                end
+
+                cfg.collapsed = value == true
+                items[ "scrolling" ].Visible = not cfg.collapsed
+
+                if cfg.collapsed then
+                    items[ "outline" ].Size = dim2(0, 0, 0, 37)
+                elseif cfg.auto_size then
+                    cfg:update_size()
+                else
+                    items[ "outline" ].Size = cfg.expanded_size
+                end
+
+                if items[ "collapse" ] then
+                    items[ "collapse" ].Text = cfg.collapsed and "+" or "-"
+                end
+
+                return cfg.collapsed
+            end
+
+            function cfg:toggle_collapsed()
+                return cfg:set_collapsed(not cfg.collapsed)
+            end
+
+            function cfg:SetCollapsed(value)
+                return cfg:set_collapsed(value)
+            end
+
+            function cfg:ToggleCollapsed()
+                return cfg:toggle_collapsed()
+            end
+
+            function cfg:set_visible(value)
+                items[ "outline" ].Visible = value ~= false
+                return items[ "outline" ].Visible
+            end
+
+            function cfg:SetVisible(value)
+                return cfg:set_visible(value)
+            end
+
+            function cfg:show()
+                return cfg:set_visible(true)
+            end
+
+            function cfg:Show()
+                return cfg:show()
+            end
+
+            function cfg:hide()
+                return cfg:set_visible(false)
+            end
+
+            function cfg:Hide()
+                return cfg:hide()
+            end
+
+            if cfg.collapsible then
+                items[ "button" ].Activated:Connect(function()
+                    cfg:toggle_collapsed()
+                end)
+                task.defer(function()
+                    cfg:set_collapsed(cfg.collapsed)
+                end)
+            end
+
             return setmetatable(cfg, library)
         end
 
@@ -2127,6 +2255,23 @@
             end
             if options.default == nil and options.Default == nil then
                 options.default = true
+            end
+
+            if options.collapsible == nil and options.Collapsible == nil
+                and options.toggle == nil and options.Toggle == nil then
+                options.collapsible = true
+            end
+
+            local disable_collapsing = options.disable_collapsing
+            if disable_collapsing == nil then
+                disable_collapsing = options.disableCollapsing
+            end
+            if disable_collapsing == true then
+                options.collapsible = false
+            end
+
+            if options.collapsed == nil and options.Collapsed == nil then
+                options.collapsed = false
             end
 
             return self:section(options)
