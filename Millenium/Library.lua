@@ -1571,7 +1571,87 @@
             end 
 
             return setmetatable(cfg, library)
-        end  
+        end
+
+        function library:groupbox(properties)
+            properties = properties or {}
+
+            local options = {}
+            for key, value in properties do
+                options[key] = value
+            end
+
+            options.size = options.size or options.Size or 1
+            if options.default == nil and options.Default == nil then
+                options.default = true
+            end
+
+            return self:section(options)
+        end
+
+        function library:group_box(properties)
+            return self:groupbox(properties)
+        end
+
+        function library:groupboxes(properties)
+            properties = properties or {}
+
+            local column_size = tonumber(properties.column_size or properties.columnSize or properties.size or properties.Size) or 0.5
+            column_size = clamp(column_size, 0.1, 0.9)
+
+            local definitions = properties.boxes or properties.groups or {}
+            local left_column = self:column({size = column_size})
+            local right_column = self:column({size = column_size})
+
+            local function definition(key, index, fallback_name)
+                local value = definitions[key] or definitions[index] or properties[key]
+
+                if type(value) == "string" then
+                    return {name = value}
+                end
+
+                if type(value) ~= "table" then
+                    return {name = fallback_name}
+                end
+
+                local options = {}
+                for option, option_value in value do
+                    options[option] = option_value
+                end
+
+                options.name = options.name or options.Name or fallback_name
+                options.size = options.size or options.Size or 1
+                if options.default == nil and options.Default == nil then
+                    options.default = true
+                end
+
+                return options
+            end
+
+            local boxes = {
+                top_left = left_column:groupbox(definition("top_left", 1, "Top Left")),
+                top_right = right_column:groupbox(definition("top_right", 2, "Top Right")),
+                bottom_left = left_column:groupbox(definition("bottom_left", 3, "Bottom Left")),
+                bottom_right = right_column:groupbox(definition("bottom_right", 4, "Bottom Right"))
+            }
+
+            boxes.topLeft = boxes.top_left
+            boxes.topRight = boxes.top_right
+            boxes.bottomLeft = boxes.bottom_left
+            boxes.bottomRight = boxes.bottom_right
+            boxes.left_column = left_column
+            boxes.right_column = right_column
+
+            return boxes
+        end
+
+        function library:groupbox_grid(properties)
+            return self:groupboxes(properties)
+        end
+
+        function library:group_boxes(properties)
+            return self:groupboxes(properties)
+        end
 
         function library:toggle(options) 
             local rand = math.random(1, 2) 
