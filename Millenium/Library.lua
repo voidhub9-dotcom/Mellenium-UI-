@@ -319,7 +319,7 @@
             end)
         end 
 
-                function fag(tbl)
+        function fag(tbl)
             local Size = 0
             
             for _ in tbl do
@@ -344,6 +344,7 @@
         end
 
         function library:draggify(frame)
+            frame.Active = true
             local dragging = false
             local active_input
             local drag_input
@@ -443,7 +444,7 @@
             end)
         end 
 
-                function library:convert(str)
+        function library:convert(str)
             local values = {}
 
             for value in string.gmatch(str, "[^,]+") do
@@ -1196,7 +1197,7 @@
                 return toggle_gui.Enabled
             end
 
-                        function cfg:set_mobile_toggle(enabled)
+            function cfg:set_mobile_toggle(enabled)
                 self.mobile_toggle_enabled = enabled == true
                 return self:update_mobile_toggle()
             end
@@ -3606,7 +3607,7 @@
             
             function cfg.update_color(position)
                 local location = position or uis:GetMouseLocation()
-                local offset = vec2(location.X, location.Y - gui_offset)
+                local offset = vec2(location.X, location.Y)
 
                 if dragging_sat then
                     s = math.clamp((offset - items["sat"].AbsolutePosition).X / items["sat"].AbsoluteSize.X, 0, 1)
