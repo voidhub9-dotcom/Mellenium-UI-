@@ -486,6 +486,10 @@
                 library[ "other" ]:Destroy()
             end 
             
+            if library[ "mobile_toggle" ] then
+                library[ "mobile_toggle" ]:Destroy()
+            end
+
             for index, connection in library.connections do 
                 connection:Disconnect() 
                 connection = nil 
@@ -515,6 +519,86 @@
 
                 return nil
             end
+
+            local mobile_toggle = properties.mobile_toggle
+            if mobile_toggle == nil then
+                mobile_toggle = properties.mobileToggle
+            end
+            if mobile_toggle == nil then
+                mobile_toggle = true
+            end
+
+            local mobile_options
+            if type(mobile_toggle) == "table" then
+                mobile_options = mobile_toggle
+            else
+                mobile_options = {enabled = mobile_toggle}
+            end
+
+            local mobile_enabled = mobile_options.enabled
+            if mobile_enabled == nil then
+                mobile_enabled = mobile_options.Enabled
+            end
+            if mobile_enabled == nil then
+                mobile_enabled = true
+            end
+
+            local mobile_only = mobile_options.mobile_only
+            if mobile_only == nil then
+                mobile_only = mobile_options.mobileOnly
+            end
+            if mobile_only == nil then
+                mobile_only = true
+            end
+
+            local mobile_show_when_open = mobile_options.show_when_open
+            if mobile_show_when_open == nil then
+                mobile_show_when_open = mobile_options.showWhenOpen
+            end
+            if mobile_show_when_open == nil then
+                mobile_show_when_open = true
+            end
+
+            local mobile_draggable = mobile_options.draggable
+            if mobile_draggable == nil then
+                mobile_draggable = mobile_options.Draggable
+            end
+            if mobile_draggable == nil then
+                mobile_draggable = true
+            end
+
+            local mobile_icon = mobile_options.icon or mobile_options.Icon or mobile_options.image or mobile_options.Image or "rbxassetid://6034767608"
+            local mobile_shape = string.lower(tostring(mobile_options.shape or mobile_options.Shape or "square"))
+            local mobile_size = resolve_window_size(mobile_options.size or mobile_options.Size, 54, 54)
+
+            if not mobile_size then
+                local numeric_size = tonumber(mobile_options.size or mobile_options.Size) or 54
+                mobile_size = dim2(0, numeric_size, 0, numeric_size)
+            end
+
+            local mobile_position = mobile_options.position or mobile_options.Position
+            if typeof(mobile_position) ~= "UDim2" then
+                if type(mobile_position) == "table" then
+                    local position_x = tonumber(mobile_position.x or mobile_position.X or mobile_position[1]) or 24
+                    local position_y = tonumber(mobile_position.y or mobile_position.Y or mobile_position[2]) or 240
+                    mobile_position = dim2(0, position_x, 0, position_y)
+                else
+                    mobile_position = dim2(0, 24, 0, 240)
+                end
+            end
+
+            local mobile_corner_radius = tonumber(mobile_options.corner_radius or mobile_options.cornerRadius) or 12
+            local mobile_background = mobile_options.background or mobile_options.backgroundColor or mobile_options.BackgroundColor
+            if typeof(mobile_background) ~= "Color3" then
+                mobile_background = themes.preset.accent
+            end
+
+            local mobile_image_color = mobile_options.image_color or mobile_options.imageColor or mobile_options.ImageColor
+            if typeof(mobile_image_color) ~= "Color3" then
+                mobile_image_color = rgb(255, 255, 255)
+            end
+
+            local mobile_transparency = clamp(tonumber(mobile_options.transparency or mobile_options.Transparency) or 0.05, 0, 1)
 
             local default_width = 700
             local default_height = 565
@@ -591,6 +675,18 @@
                 minimize_width = max(1, minimize_width);
                 minimize_height = max(1, minimize_height);
                 auto_minimized = false;
+                mobile_toggle_enabled = mobile_enabled == true;
+                mobile_toggle_mobile_only = mobile_only == true;
+                mobile_toggle_show_when_open = mobile_show_when_open == true;
+                mobile_toggle_draggable = mobile_draggable == true;
+                mobile_toggle_icon = mobile_icon;
+                mobile_toggle_shape = mobile_shape;
+                mobile_toggle_size = mobile_size;
+                mobile_toggle_position = mobile_position;
+                mobile_toggle_corner_radius = max(0, mobile_corner_radius);
+                mobile_toggle_background = mobile_background;
+                mobile_toggle_image_color = mobile_image_color;
+                mobile_toggle_transparency = mobile_transparency;
                 dpi_scale = dpi_scale;
                 dpi_min = lower_dpi;
                 dpi_max = upper_dpi;
@@ -730,6 +826,10 @@
 
                             if cfg.toggle_menu then
                                 cfg:update_auto_minimize()
+                            end
+
+                            if cfg.update_mobile_toggle then
+                                cfg:update_mobile_toggle()
                             end
                         end
                     )
@@ -951,7 +1051,157 @@
                 -- cfg.tween = 
                 
                 library[ "items" ].Enabled = bool
+
+                if cfg.update_mobile_toggle then
+                    cfg:update_mobile_toggle()
+                end
             end
+
+            function cfg:update_mobile_toggle()
+                local toggle_gui = library[ "mobile_toggle" ]
+                if not toggle_gui then
+                    return false
+                end
+
+                local current_camera = ws.CurrentCamera or camera
+                local viewport = current_camera and current_camera.ViewportSize
+                local supported = viewport and (uis.TouchEnabled or viewport.X <= self.minimize_width or viewport.Y <= self.minimize_height)
+
+                if self.mobile_toggle_mobile_only and not supported then
+                    toggle_gui.Enabled = false
+                    return false
+                end
+
+                if self.mobile_toggle_enabled then
+                    toggle_gui.Enabled = self.mobile_toggle_show_when_open or not library[ "items" ].Enabled
+                else
+                    toggle_gui.Enabled = false
+                end
+
+                return toggle_gui.Enabled
+            end
+
+            function cfg:set_mobile_toggle(enabled)
+                self.mobile_toggle_enabled = enabled == true
+                return self:update_mobile_toggle()
+            end
+
+            if cfg.mobile_toggle_enabled then
+                library[ "mobile_toggle" ] = library:create( "ScreenGui" , {
+                    Parent = coregui;
+                    Name = "\0";
+                    Enabled = false;
+                    ZIndexBehavior = Enum.ZIndexBehavior.Global;
+                    DisplayOrder = 1000;
+                    IgnoreGuiInset = true;
+                })
+
+                local mobile_button = library:create( "ImageButton" , {
+                    Parent = library[ "mobile_toggle" ];
+                    Name = "\0";
+                    Active = true;
+                    AutoButtonColor = false;
+                    BackgroundColor3 = cfg.mobile_toggle_background;
+                    BackgroundTransparency = cfg.mobile_toggle_transparency;
+                    BorderSizePixel = 0;
+                    Image = cfg.mobile_toggle_icon;
+                    ImageColor3 = cfg.mobile_toggle_image_color;
+                    Position = cfg.mobile_toggle_position;
+                    Size = cfg.mobile_toggle_size;
+                    ZIndex = 1000
+                })
+
+                cfg.mobile_toggle_button = mobile_button
+
+                library:create( "UICorner" , {
+                    Parent = mobile_button;
+                    CornerRadius = cfg.mobile_toggle_shape == "circle" and dim(1, 0) or dim(0, cfg.mobile_toggle_corner_radius)
+                })
+
+                library:create( "UIStroke" , {
+                    Parent = mobile_button;
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(255, 255, 255);
+                    Transparency = 0.72;
+                    Thickness = 1
+                })
+
+                local dragging = false
+                local drag_input
+                local drag_start
+                local button_start
+                local dragged = false
+
+                local function is_drag_input(input)
+                    return input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch
+                end
+
+                library:connection(mobile_button.InputBegan, function(input)
+                    if not cfg.mobile_toggle_draggable then
+                        return
+                    end
+
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = true
+                        drag_start = input.Position
+                        button_start = mobile_button.AbsolutePosition
+                        dragged = false
+
+                        library:connection(input.Changed, function()
+                            if input.UserInputState == Enum.UserInputState.End then
+                                dragging = false
+                            end
+                        end)
+                    end
+                end)
+
+                library:connection(mobile_button.InputChanged, function(input)
+                    if is_drag_input(input) then
+                        drag_input = input
+                    end
+                end)
+
+                library:connection(uis.InputChanged, function(input)
+                    if not dragging or not drag_input or input ~= drag_input then
+                        return
+                    end
+
+                    local delta = input.Position - drag_start
+                    if abs(delta.X) > 4 or abs(delta.Y) > 4 then
+                        dragged = true
+                    end
+
+                    local current_camera = ws.CurrentCamera or camera
+                    local viewport = current_camera and current_camera.ViewportSize
+                    if not viewport then
+                        return
+                    end
+
+                    local size = mobile_button.AbsoluteSize
+                    local x = clamp(button_start.X + delta.X, 0, max(0, viewport.X - size.X))
+                    local y = clamp(button_start.Y + delta.Y, 0, max(0, viewport.Y - size.Y))
+                    mobile_button.Position = dim2(0, x, 0, y)
+                end)
+
+                library:connection(mobile_button.Activated, function()
+                    if dragged then
+                        task.delay(0.1, function()
+                            dragged = false
+                        end)
+                        return
+                    end
+
+                    cfg.toggle_menu(not library[ "items" ].Enabled)
+                end)
+
+                library:connection(ws:GetPropertyChangedSignal("CurrentCamera"), function()
+                    task.defer(function()
+                        cfg:update_mobile_toggle()
+                    end)
+                end)
+            end
+
+            cfg:update_mobile_toggle()
 
             if cfg.auto_minimize then
                 cfg:update_auto_minimize()
@@ -1322,38 +1572,68 @@
         end 
 
         -- Miscellaneous 
-            function library:column(properties) 
-                local cfg = {items = {}, size = properties.size or 1}
+            function library:column(properties)
+            properties = properties or {}
 
-                local items = cfg.items; do     
-                    items[ "column" ] = library:create( "Frame" , {
-                        Parent = self[ "parent" ] or self.items["tab_parent"];
-                        BackgroundTransparency = 1;
-                        Name = "\0";
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(0, 0, cfg.size, 0);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    });
-                    
-                    library:create( "UIPadding" , {
-                        PaddingBottom = dim(0, 10);
-                        Parent = items[ "column" ]
-                    });
-                    
-                    library:create( "UIListLayout" , {
-                        Parent = items[ "column" ];
-                        HorizontalFlex = Enum.UIFlexAlignment.Fill;
-                        Padding = dim(0, 10);
-                        FillDirection = Enum.FillDirection.Vertical;
-                        SortOrder = Enum.SortOrder.LayoutOrder
-                    });
-                end 
+            local scroll = properties.scroll
+            if scroll == nil then
+                scroll = properties.scrolling or properties.Scroll or false
+            end
 
-                return setmetatable(cfg, library)
-            end 
+            local cfg = {
+                items = {};
+                size = properties.size or properties.Size or 1;
+                scroll = scroll == true;
+                scroll_bar_thickness = tonumber(properties.scroll_bar_thickness or properties.scrollBarThickness) or 3;
+            }
 
-            function library:sub_tab(properties) 
+            local items = cfg.items; do
+                local column_class = cfg.scroll and "ScrollingFrame" or "Frame"
+                local column_options = {
+                    Parent = self[ "parent" ] or self.items["tab_parent"];
+                    BackgroundTransparency = 1;
+                    Name = "\0";
+                    BorderColor3 = rgb(0, 0, 0);
+                    Size = dim2(0, 0, cfg.size, 0);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = rgb(255, 255, 255)
+                }
+
+                if cfg.scroll then
+                    column_options.Active = true
+                    column_options.ScrollingEnabled = true
+                    column_options.AutomaticCanvasSize = Enum.AutomaticSize.Y
+                    column_options.CanvasSize = dim2(0, 0, 0, 0)
+                    column_options.ScrollBarThickness = cfg.scroll_bar_thickness
+                    column_options.ScrollBarImageColor3 = rgb(44, 44, 46)
+                    column_options.ScrollingDirection = Enum.ScrollingDirection.Y
+                    column_options.ClipsDescendants = true
+                end
+
+                items[ "column" ] = library:create(column_class, column_options)
+
+                if cfg.scroll then
+                    library:apply_theme(items[ "column" ], "accent", "ScrollBarImageColor3")
+                end
+
+                library:create( "UIPadding" , {
+                    PaddingBottom = dim(0, 10);
+                    Parent = items[ "column" ]
+                });
+
+                items[ "layout" ] = library:create( "UIListLayout" , {
+                    Parent = items[ "column" ];
+                    HorizontalFlex = Enum.UIFlexAlignment.Fill;
+                    Padding = dim(0, 10);
+                    FillDirection = Enum.FillDirection.Vertical;
+                    SortOrder = Enum.SortOrder.LayoutOrder
+                });
+            end
+
+            return setmetatable(cfg, library)
+        end
+
+        function library:sub_tab(properties) 
                 local cfg = {items = {}, order = properties.order or 0; size = properties.size or 1}
 
                 local items = cfg.items; do 
@@ -1383,6 +1663,16 @@
         --
 
         function library:section(properties)
+            properties = properties or {}
+
+            local auto_size = properties.auto_size
+            if auto_size == nil then
+                auto_size = properties.autoSize or properties.dynamic or properties.dynamicSize
+            end
+
+            local min_height = tonumber(properties.min_height or properties.minHeight) or 0
+            local max_height = tonumber(properties.max_height or properties.maxHeight) or 300
+
             local cfg = {
                 name = properties.name or properties.Name or "section"; 
                 side = properties.side or properties.Side or "left";
@@ -1390,6 +1680,9 @@
                 size = properties.size or properties.Size or self.size or 0.5; 
                 icon = properties.icon or properties.Icon or "http://www.roblox.com/asset/?id=6022668898";
                 fading_toggle = properties.fading or properties.Fading or false;
+                auto_size = auto_size == true;
+                min_height = max(0, min_height);
+                max_height = max(max(0, min_height), max_height);
                 items = {};
             };
             
@@ -1398,7 +1691,7 @@
                     Name = "\0";
                     Parent = self.items[ "column" ];
                     BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(0, 0, cfg.size, -3);
+                    Size = cfg.auto_size and dim2(0, 0, 0, 37 + cfg.min_height) or dim2(0, 0, cfg.size, -3);
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(25, 25, 29)
                 });
@@ -1430,7 +1723,7 @@
                     ScrollBarThickness = 2;
                     Parent = items[ "inline" ];
                     Name = "\0";
-                    Size = dim2(1, 0, 1, -40);
+                    Size = cfg.auto_size and dim2(1, 0, 0, cfg.min_height) or dim2(1, 0, 1, -40);
                     BackgroundTransparency = 1;
                     Position = dim2(0, 0, 0, 35);
                     BackgroundColor3 = rgb(255, 255, 255);
@@ -1451,7 +1744,7 @@
                     BackgroundColor3 = rgb(255, 255, 255)
                 });
                 
-                library:create( "UIListLayout" , {
+                items[ "elements_layout" ] = library:create( "UIListLayout" , {
                     Parent = items[ "elements" ];
                     Padding = dim(0, 10);
                     SortOrder = Enum.SortOrder.LayoutOrder
@@ -1461,6 +1754,27 @@
                     PaddingBottom = dim(0, 15);
                     Parent = items[ "elements" ]
                 });
+
+                if cfg.auto_size then
+                    function cfg:update_size()
+                        local content_height = items[ "elements_layout" ].AbsoluteContentSize.Y
+                        local desired_height = max(cfg.min_height, content_height + 20)
+                        local visible_height = min(desired_height, cfg.max_height)
+
+                        items[ "scrolling" ].Size = dim2(1, 0, 0, visible_height)
+                        items[ "outline" ].Size = dim2(0, 0, 0, visible_height + 37)
+
+                        return visible_height
+                    end
+
+                    library:connection(items[ "elements_layout" ]:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+                        cfg:update_size()
+                    end)
+
+                    task.defer(function()
+                        cfg:update_size()
+                    end)
+                end
                 
                 items[ "button" ] = library:create( "TextButton" , {
                     FontFace = fonts.font;
@@ -1635,7 +1949,19 @@
                 options[key] = value
             end
 
+            local auto_size = options.auto_size
+            if auto_size == nil then
+                auto_size = options.autoSize or options.dynamic or options.dynamicSize
+            end
+            if auto_size == nil then
+                auto_size = true
+            end
+
+            options.auto_size = auto_size == true
             options.size = options.size or options.Size or 1
+            if options.max_height == nil and options.maxHeight == nil then
+                options.max_height = 300
+            end
             if options.default == nil and options.Default == nil then
                 options.default = true
             end
@@ -1654,8 +1980,18 @@
             column_size = clamp(column_size, 0.1, 0.9)
 
             local definitions = properties.boxes or properties.groups or {}
-            local left_column = self:column({size = column_size})
-            local right_column = self:column({size = column_size})
+            local scroll_columns = properties.scroll ~= false and properties.scrolling ~= false
+            local scroll_bar_thickness = tonumber(properties.scroll_bar_thickness or properties.scrollBarThickness) or 3
+            local left_column = self:column({
+                size = column_size;
+                scroll = scroll_columns;
+                scroll_bar_thickness = scroll_bar_thickness
+            })
+            local right_column = self:column({
+                size = column_size;
+                scroll = scroll_columns;
+                scroll_bar_thickness = scroll_bar_thickness
+            })
 
             local function definition(key, index, fallback_name)
                 local value = definitions[key] or definitions[index] or properties[key]
@@ -1674,10 +2010,16 @@
                 end
 
                 options.name = options.name or options.Name or fallback_name
-                options.size = options.size or options.Size or 1
-                if options.default == nil and options.Default == nil then
-                    options.default = true
-                end
+                 if options.auto_size == nil and options.autoSize == nil and properties.auto_size ~= nil then
+                     options.auto_size = properties.auto_size
+                 end
+                 if options.max_height == nil and options.maxHeight == nil then
+                     options.max_height = properties.max_height or properties.maxHeight
+                 end
+                 options.size = options.size or options.Size or 1
+                 if options.default == nil and options.Default == nil then
+                     options.default = true
+                 end
 
                 return options
             end
