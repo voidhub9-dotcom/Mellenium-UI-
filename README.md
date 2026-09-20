@@ -27,6 +27,7 @@ Window options used by the example:
 - `name` — main title.
 - `suffix` — text displayed beside the title.
 - `gameInfo` — information shown in the window.
+- `mobileToggle` — the draggable floating button used to close and reopen the UI on touch-sized screens.
 
 ## Auto-DPI and custom size
 
@@ -72,6 +73,37 @@ window:update_auto_minimize()
 
 The current scale is available through `window.current_dpi`.
 
+## Mobile floating toggle
+
+The library includes a floating mobile toggle by default. It stays above the UI, can close or reopen the menu, supports touch or mouse dragging, and is hidden on normal desktop resolutions unless `mobileOnly = false`.
+
+```lua
+local window = library:window({
+    name = "VoidHub",
+    suffix = "UI",
+    mobileToggle = {
+        enabled = true,
+        icon = "rbxassetid://6034767608",
+        shape = "square", -- "square" or "circle"
+        size = 54,
+        mobileOnly = true,
+        showWhenOpen = true,
+        draggable = true
+    }
+})
+```
+
+Mobile toggle options:
+
+- `enabled` turns the floating button on or off.
+- `icon` accepts any Roblox image asset string.
+- `shape` defaults to a soft rounded square; use `"circle"` for a circular button.
+- `size` accepts a number, `{width = ..., height = ...}`, or a `UDim2`.
+- `position` accepts a `UDim2` or `{x = ..., y = ...}`.
+- `showWhenOpen` keeps the button visible while the main UI is open.
+- `draggable` enables touch/mouse repositioning.
+- `window:set_mobile_toggle(false)` or `window:set_mobile_toggle(true)` changes it at runtime.
+
 ## Add tabs
 
 ```lua
@@ -112,6 +144,8 @@ Use `groupboxes` to create a four-box layout:
 
 ```lua
 local boxes = main:groupboxes({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "Combat"},
         {name = "Visuals"},
@@ -143,6 +177,13 @@ The returned boxes are:
 - `bottom_right`
 
 Each box is a normal section, so it supports the existing controls such as toggles, dropdowns, sliders, color pickers, keybinds, textboxes, labels, and buttons.
+
+Group-box layout behavior:
+
+- Boxes automatically size to the controls inside them instead of using a full-height blank panel.
+- `maxHeight` caps a box's visible content area; extra controls scroll inside that box.
+- `scroll = true` gives each group-box column its own vertical scrollbar when the page is longer than the window.
+- Use `scroll = false` to disable column scrolling, or `autoSize = false` with `size` when a fixed-height section is needed.
 
 Aliases are also available: `topLeft`, `topRight`, `bottomLeft`, and `bottomRight`.
 
@@ -257,7 +298,15 @@ local window = library:window({
     gameInfo = "VoidHub UI",
     autoDPI = true,
     autoMinimize = {width = 900, height = 600},
-    customSize = {width = 760, height = 600}
+    customSize = {width = 760, height = 600},
+    mobileToggle = {
+        enabled = true,
+        icon = "rbxassetid://6034767608",
+        shape = "square",
+        mobileOnly = true,
+        showWhenOpen = true,
+        draggable = true
+    }
 })
 
 window:seperator({name = "Main"})
@@ -270,6 +319,8 @@ local combat, visuals, settings = window:tab({
 })
 
 local combatBoxes = combat:groupboxes({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "Auto Farm", icon = "rbxassetid://6034767608"},
         {name = "Targeting", icon = "rbxassetid://6022668898"},
@@ -309,6 +360,8 @@ combatBoxes.bottom_right:keybind({
 })
 
 local visualBoxes = visuals:groupbox_grid({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "ESP", icon = "rbxassetid://6022668898"},
         {name = "Players", icon = "rbxassetid://129380150574313"},
@@ -333,6 +386,8 @@ visualBoxes.bottom_right:button({
 
 -- The Settings sub-tab is another independent group-box page.
 local settingsBoxes = settings:group_boxes({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "Interface"},
         {name = "Theme"},
