@@ -1,162 +1,157 @@
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/voidhub9-dotcom/Mellenium-UI-/refs/heads/main/Millenium/Library.lua"))()
 
---[[
-  This ui uses a column way of creating holders for sections, its a bit confusing for newbies so heres an easy explanation:
-  Each column is how much sections sideways you can have, eg normal menus have only two however you can have 3 or 4 or 1 with this library.
-  There is alot of customisability with this library which made it very high in demand.
+local window = library:window({
+    name = "VoidHub",
+    suffix = "UI",
+    gameInfo = "VoidHub UI",
+    autoDPI = true,
+    autoMinimize = {width = 900, height = 600},
+    customSize = {width = 760, height = 600},
+    dpiScale = 1,
+    minDPI = 0.55,
+    maxDPI = 1.15
+})
 
-  Also I haven't even got a clue how this got leaked since loads of people had it.
-]]
+local icons = {
+    combat = "rbxassetid://6034767608",
+    visual = "rbxassetid://6022668898",
+    settings = "rbxassetid://139628202576511",
+    player = "rbxassetid://129380150574313"
+}
 
-local window = library:window({name = "VoidHub", suffix = "UI", gameInfo = "VoidHub UI"})
+window:seperator({name = "Main"})
 
-window:seperator({name = "General"})
-local enemies, teammates, self_section = window:tab({name = "Example", tabs = {"Enemies", "Teammates", "Self"}})
-for _,tab in {enemies, teammates, self_section} do 
-    local column = tab:column({})
-    local section = column:section({name = "General", default = true, toggle = false})
-    section:label({name = "This is a title!", info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
-    
-    local page = tab:sub_tab({order = -10000, size = 2}) -- -1 sets it to the top
-    
-    for i = 1, 2 do 
-        local column = page:column({})
-        local section = column:section({name = "General", default = true})
-        section:toggle({name = "Enable ESP", seperator = true, callback = function(bool) print(bool) end})
-        section:toggle({name = "Through walls", seperator = true})
-        local toggle = section:toggle({name = "Shared ESP", seperator = true}):colorpicker({})
+-- One top-level tab can contain multiple sub-tabs.
+local combat, visuals, settings = window:tab({
+    name = "Main",
+    icon = icons.combat,
+    tabs = {"Combat", "Visuals", "Settings"}
+})
 
-        -- Sub Section Example
-            local toggle = section:toggle({name = "Name", seperator = true})
-            toggle:colorpicker({})
-            local sub_section = toggle:settings({})
-            sub_section:toggle({name = "Show Display Names", seperator = true})
-            sub_section:dropdown({name = "Font Name", items = {"ProggyTiny", "MonoSpace", "Tahoma"}, default = "MonoSpace", seperator = true})
-            sub_section:colorpicker({name = "Another Colorpicker why not", seperator = true})
-            sub_section:keybind({name = "Keybind", callback = function(bool) print(bool) end, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
-        -- 
+-- Combat sub-tab: four full group boxes.
+local combat_boxes = combat:groupboxes({
+    boxes = {
+        {name = "Auto Farm", icon = icons.combat},
+        {name = "Targeting", icon = icons.player},
+        {name = "Movement", icon = icons.visual},
+        {name = "Combat Settings", icon = icons.settings}
+    }
+})
 
-        section:toggle({name = "Weapon", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"}):colorpicker({})
-        section:dropdown({name = "Flags", items = {"Scoped", "Flashed", "Knocked", "Touched"}, default = {"Scoped", "Flashed", "Knocked"}, multi = true, seperator = true})
-        section:toggle({name = "Other Shit", seperator = false}):colorpicker({})
+combat_boxes.top_left:toggle({
+    name = "Enable auto farm",
+    flag = "auto_farm",
+    seperator = true,
+    callback = function(enabled)
+        print("Auto farm:", enabled)
     end
-end 
+})
 
-local enemies, teammates, self_section = window:tab({name = "Example", tabs = {"Enemies", "Teammates", "Self"}})
-for _,tab in {enemies, teammates, self_section} do 
-    for i = 1, 2 do 
-        local column = tab:column({})
-        local section = column:section({name = "General", default = true})
-        section:toggle({name = "Enable ESP", seperator = true, callback = function(bool) print(bool) end})
-        section:toggle({name = "Through walls", seperator = true})
-        local toggle = section:toggle({name = "Shared ESP", seperator = true}):colorpicker({})
+combat_boxes.top_left:dropdown({
+    name = "Farm target",
+    items = {"Enemies", "Bosses", "Players"},
+    default = "Enemies",
+    seperator = true
+})
 
-        -- Sub Section Example
-            local toggle = section:toggle({name = "Name", seperator = true})
-            toggle:colorpicker({})
-            local sub_section = toggle:settings({})
-            sub_section:toggle({name = "Show Display Names", seperator = true})
-            sub_section:dropdown({name = "Font Name", items = {"ProggyTiny", "MonoSpace", "Tahoma"}, default = "MonoSpace", seperator = true})
-            sub_section:colorpicker({name = "Another Colorpicker why not", seperator = true})
-            sub_section:keybind({name = "Keybind", callback = function(bool) print(bool) end, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
-        -- 
-
-        section:toggle({name = "Weapon", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"}):colorpicker({})
-        section:dropdown({name = "Flags", items = {"Scoped", "Flashed", "Knocked", "Touched"}, default = {"Scoped", "Flashed", "Knocked"}, multi = true, seperator = true})
-        section:toggle({name = "Other Shit", seperator = false}):colorpicker({})
+combat_boxes.top_right:toggle({name = "Auto attack", seperator = true})
+combat_boxes.top_right:toggle({name = "Auto parry", seperator = true})
+combat_boxes.top_right:keybind({
+    name = "Combat key",
+    callback = function(value)
+        print("Combat key:", value)
     end
-end 
+})
 
+combat_boxes.bottom_left:slider({
+    name = "Farm distance",
+    min = 25,
+    max = 500,
+    interval = 5,
+    callback = function(value)
+        print("Distance:", value)
+    end
+})
 
-local enemies, teammates, self_section = window:tab({name = "Example", tabs = {"Enemies", "Teammates", "Self"}})
-for _,tab in {enemies, teammates, self_section} do 
-    local column = tab:column({})
-    local section = column:section({name = "General", default = true})
-    section:toggle({name = "Enable ESP", seperator = true, callback = function(bool) print(bool) end})
-    section:toggle({name = "Through walls", seperator = true})
-    local toggle = section:toggle({name = "Shared ESP", seperator = true}):colorpicker({})
+combat_boxes.bottom_left:dropdown({
+    name = "Movement mode",
+    items = {"Tween", "Instant"},
+    default = "Tween"
+})
 
-    -- Sub Section Example
-        local toggle = section:toggle({name = "Name", seperator = true})
-        toggle:colorpicker({})
-        local sub_section = toggle:settings({})
-        sub_section:toggle({name = "Show Display Names", seperator = true})
-        sub_section:dropdown({name = "Font Name", items = {"ProggyTiny", "MonoSpace", "Tahoma"}, default = "MonoSpace", seperator = true})
-        sub_section:colorpicker({name = "Another Colorpicker why not", seperator = true})
-        sub_section:keybind({name = "Keybind", callback = function(bool) print(bool) end, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
-    -- 
+combat_boxes.bottom_right:colorpicker({
+    name = "Target color",
+    callback = function(value)
+        print("Target color:", value)
+    end
+})
 
-    section:toggle({name = "Weapon", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"}):colorpicker({})
-    section:dropdown({name = "Flags", items = {"Scoped", "Flashed", "Knocked", "Touched"}, default = {"Scoped", "Flashed", "Knocked"}, multi = true, seperator = true})
-    section:toggle({name = "Other Shit", seperator = false}):colorpicker({})
-end 
+combat_boxes.bottom_right:button({
+    name = "Reset combat settings",
+    callback = function()
+        print("Combat settings reset")
+    end
+})
 
-local enemies, teammates, self_section = window:tab({name = "Example", tabs = {"Enemies", "Teammates", "Self"}})
-for _,tab in {enemies, teammates, self_section} do 
-    local column = tab:column({})
+-- Visuals sub-tab: another complete four-box layout.
+local visual_boxes = visuals:groupbox_grid({
+    boxes = {
+        {name = "ESP", icon = icons.visual},
+        {name = "Players", icon = icons.player},
+        {name = "World", icon = icons.visual},
+        {name = "Performance", icon = icons.settings}
+    }
+})
 
-    for i = 1, 2 do 
-        local section = column:section({name = "General", default = true, size = 0.5})
-        section:toggle({name = "Enable ESP", seperator = true, callback = function(bool) print(bool) end})
-        section:toggle({name = "Through walls", seperator = true})
-        local toggle = section:toggle({name = "Shared ESP", seperator = true}):colorpicker({})
+visual_boxes.top_left:toggle({name = "Enable ESP", seperator = true})
+visual_boxes.top_left:dropdown({
+    name = "ESP mode",
+    items = {"Box", "Highlight", "Tracer"},
+    default = "Box"
+})
+visual_boxes.top_right:toggle({name = "Player names", seperator = true})
+visual_boxes.top_right:toggle({name = "Health bars", seperator = true})
+visual_boxes.bottom_left:toggle({name = "World items", seperator = true})
+visual_boxes.bottom_left:colorpicker({name = "ESP color"})
+visual_boxes.bottom_right:slider({
+    name = "Render distance",
+    min = 100,
+    max = 2000,
+    interval = 50
+})
 
-        -- Sub Section Example
-            local toggle = section:toggle({name = "Name", seperator = true})
-            toggle:colorpicker({})
-            local sub_section = toggle:settings({})
-            sub_section:toggle({name = "Show Display Names", seperator = true})
-            sub_section:dropdown({name = "Font Name", items = {"ProggyTiny", "MonoSpace", "Tahoma"}, default = "MonoSpace", seperator = true})
-            sub_section:colorpicker({name = "Another Colorpicker why not", seperator = true})
-            sub_section:keybind({name = "Keybind", callback = function(bool) print(bool) end, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
-        -- 
+-- Settings sub-tab: group boxes can contain config controls too.
+local settings_boxes = settings:group_boxes({
+    boxes = {
+        {name = "Interface", icon = icons.settings},
+        {name = "Theme", icon = icons.visual},
+        {name = "Profile", icon = icons.player},
+        {name = "About", icon = icons.combat}
+    }
+})
 
-        section:toggle({name = "Weapon", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"}):colorpicker({})
-        section:dropdown({name = "Flags", items = {"Scoped", "Flashed", "Knocked", "Touched"}, default = {"Scoped", "Flashed", "Knocked"}, multi = true, seperator = true})
-        section:toggle({name = "Other Shit", seperator = false}):colorpicker({})
-    end 
-end 
+settings_boxes.top_left:keybind({
+    name = "Menu bind",
+    callback = function(value)
+        print("Menu bind:", value)
+    end
+})
 
--- OLD DOCUMENTATION
--- for i = 1, 5 do 
---     window:seperator({name = "General"})
---     local enemies, teammates, self_section = window:tab({name = "Players", tabs = {"Enemies", "Teammates", "Self"}})
+settings_boxes.top_left:toggle({name = "Show notifications", seperator = true})
+settings_boxes.top_right:colorpicker({name = "Accent color"})
+settings_boxes.bottom_left:textbox({
+    name = "Profile name",
+    flag = "profile_name"
+})
+settings_boxes.bottom_left:button({
+    name = "Save profile",
+    callback = function()
+        print("Profile saved")
+    end
+})
+settings_boxes.bottom_right:label({
+    name = "VoidHub UI",
+    info = "Four group boxes, nested sub-tabs, icons, and working controls."
+})
 
---     for _, v in {enemies, teammates, self_section} do 
---         for s, side in {"left", "right", ""} do 
---             local column = v:column({})
---             local section = column:section({name = "General", size = 0.3, default = true})
---             section:toggle({name = "Enable ESP", seperator = true, callback = function(bool) print(bool) end})
---             section:toggle({name = "Through walls", seperator = true})
---             local toggle = section:toggle({name = "Shared ESP", seperator = true}):colorpicker({})
-
---             -- Sub Section Example
---                 local toggle = section:toggle({name = "Name", seperator = true})
---                 toggle:colorpicker({})
---                 local sub_section = toggle:settings({})
---                 sub_section:toggle({name = "Show Display Names", seperator = true})
---                 sub_section:dropdown({name = "Font Name", items = {"ProggyTiny", "MonoSpace", "Tahoma"}, default = "MonoSpace", seperator = true})
---                 sub_section:colorpicker({name = "Another Colorpicker why not", seperator = true})
---                 sub_section:keybind({name = "Keybind", callback = function(bool) print(bool) end, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
---             -- 
-
---             section:toggle({name = "Weapon", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"}):colorpicker({})
---             section:dropdown({name = "Flags", items = {"Scoped", "Flashed", "Knocked", "Touched"}, default = {"Scoped", "Flashed", "Knocked"}, multi = true, seperator = true})
---             section:toggle({name = "Other Shit", seperator = false}):colorpicker({})
-
---             local section = column:section({name = "General", size = 0.3, default = true})
---             section:toggle({name = "Enable ESP", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
---             section:toggle({name = "Through walls", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
---             local toggle = section:toggle({name = "Shared ESP", seperator = true, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"}):colorpicker({})
-
---             local section = column:section({name = "General", size = 0.4, default = true})
---             section:toggle({name = "Enable ESP", seperator = true, info = "Hello!!!!!"})
---             section:dropdown({name = "Flags", items = {"Scoped", "Flashed", "Knocked", "Touched"}, default = {"Scoped", "Flashed", "Knocked"}, multi = true, seperator = true, info = "Hello!!!!!"})
---             section:slider({name = "Slider", info = "This is extra info.", min = 0, max = 50, interval = 0.5, callback = function(int) print(int) end, info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
---             section:label({name = "This is a title!", info = "Hello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawdHello there this is a paragraph.. adawdawdawd\nextra info here ig"})
---         end 
---     end 
--- end 
-
-
-library:init_config(window) 
+library:init_config(window)
