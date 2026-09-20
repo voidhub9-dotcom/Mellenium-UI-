@@ -430,8 +430,9 @@
                 local target = frame_start + delta
                 local x = clamp(target.X - parent_position.X, 0, max(0, parent_size.X - frame_size.X))
                 local y = clamp(target.Y - parent_position.Y, 0, max(0, parent_size.Y - frame_size.Y))
+                local parent_inset_y = parent and parent:IsA("ScreenGui") and gui_offset or 0
 
-                frame.Position = dim_offset(x, y)
+                frame.Position = dim_offset(x, y + parent_inset_y)
                 library:close_element()
             end)
 
@@ -849,7 +850,7 @@
 
                     local absolute_size = items[ "main" ].AbsoluteSize
                     local x = max(0, (viewport.X - absolute_size.X) / 2)
-                    local y = max(0, (viewport.Y - absolute_size.Y) / 2)
+                    local y = max(0, (viewport.Y - absolute_size.Y) / 2) + gui_offset
                     items[ "main" ].Position = dim_offset(x, y)
                 end
 
@@ -1196,10 +1197,13 @@
                 local mobile_button = self.mobile_toggle_button
                 if mobile_button and viewport then
                     local size = mobile_button.AbsoluteSize
-                    local x = clamp(mobile_button.AbsolutePosition.X, 0, max(0, viewport.X - size.X))
-                    local y = clamp(mobile_button.AbsolutePosition.Y, 0, max(0, viewport.Y - size.Y))
-                    if abs(x - mobile_button.AbsolutePosition.X) > 1 or abs(y - mobile_button.AbsolutePosition.Y) > 1 then
-                        mobile_button.Position = dim_offset(x, y)
+                    local absolute_position = mobile_button.AbsolutePosition
+                    local current_position = mobile_button.Position
+                    local x = clamp(absolute_position.X, 0, max(0, viewport.X - size.X))
+                    local y = clamp(absolute_position.Y, 0, max(0, viewport.Y - size.Y))
+                    local position_y = y + gui_offset
+                    if abs(x - current_position.X.Offset) > 1 or abs(position_y - current_position.Y.Offset) > 1 then
+                        mobile_button.Position = dim_offset(x, position_y)
                     end
                 end
 
@@ -1337,7 +1341,7 @@
                     local size = mobile_button.AbsoluteSize
                     local x = clamp(button_start.X + delta.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(button_start.Y + delta.Y, 0, max(0, viewport.Y - size.Y))
-                    mobile_button.Position = dim_offset(x, y)
+                    mobile_button.Position = dim_offset(x, y + gui_offset)
                 end)
 
                 library:connection(uis.InputEnded, function(input)
@@ -3623,7 +3627,7 @@
             
             function cfg.update_color(position)
                 local location = position or uis:GetMouseLocation()
-                local offset = vec2(location.X, location.Y)
+                local offset = vec2(location.X, location.Y - gui_offset)
 
                 if dragging_sat then
                     s = math.clamp((offset - items["sat"].AbsolutePosition).X / items["sat"].AbsoluteSize.X, 0, 1)
