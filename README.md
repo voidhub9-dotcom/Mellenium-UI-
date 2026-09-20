@@ -102,6 +102,55 @@ A tab can also contain sub-tabs:
 local page = enemies:sub_tab({order = -10000, size = 2})
 ```
 
+## Group boxes
+
+Use `groupboxes` to create a four-box layout:
+
+```lua
+local boxes = main:groupboxes({
+    boxes = {
+        {name = "Combat"},
+        {name = "Visuals"},
+        {name = "Player"},
+        {name = "Settings"}
+    }
+})
+
+boxes.top_left:toggle({name = "Enable combat", seperator = true})
+boxes.top_right:toggle({name = "Player ESP", seperator = true})
+boxes.bottom_left:dropdown({
+    name = "Movement mode",
+    items = {"Walk", "Fly"},
+    default = "Walk"
+})
+boxes.bottom_right:button({
+    name = "Save settings",
+    callback = function()
+        print("Saved")
+    end
+})
+```
+
+The returned boxes are:
+
+- `top_left`
+- `top_right`
+- `bottom_left`
+- `bottom_right`
+
+Each box is a normal section, so it supports the existing controls such as toggles, dropdowns, sliders, color pickers, keybinds, textboxes, labels, and buttons.
+
+Aliases are also available: `topLeft`, `topRight`, `bottomLeft`, and `bottomRight`.
+
+For one standalone group box, use:
+
+```lua
+local box = column:groupbox({name = "Combat", default = true})
+box:toggle({name = "Enable combat"})
+```
+
+`groupbox_grid` and `group_boxes` are aliases for `groupboxes`.
+
 ## Controls
 
 ### Label
