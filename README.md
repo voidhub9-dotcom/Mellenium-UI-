@@ -26,6 +26,46 @@ Window options used by the example:
 - `suffix` — text displayed beside the title.
 - `gameInfo` — information shown in the window.
 
+## Auto-DPI and custom size
+
+Auto-DPI is enabled by default. It scales the whole window from the current camera viewport while keeping the layout centered.
+
+```lua
+local window = library:window({
+    name = "VoidHub",
+    suffix = "UI",
+    gameInfo = "VoidHub UI",
+
+    autoDPI = true,
+    customSize = {width = 760, height = 600},
+    dpiScale = 1,
+    minDPI = 0.55,
+    maxDPI = 1.15,
+    dpiReference = {width = 1920, height = 1080}
+})
+```
+
+Sizing options:
+
+- `customSize` accepts `{width = 760, height = 600}` or a `UDim2`.
+- `width` and `height` can be used instead of `customSize`.
+- `autoDPI = false` keeps the window at its configured scale.
+- `dpiScale` is a manual multiplier applied before the automatic scale.
+- `minDPI` and `maxDPI` limit the automatic scale.
+- `dpiReference` sets the resolution treated as 1x scale.
+
+You can change the window after creation:
+
+```lua
+window:set_size(900, 650)
+window:set_size({width = 760, height = 600})
+window:set_auto_dpi(false)
+window:set_auto_dpi(true)
+window:update_dpi()
+```
+
+The current scale is available through `window.current_dpi`.
+
 ## Add tabs
 
 ```lua
