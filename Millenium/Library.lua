@@ -2232,6 +2232,216 @@
             return setmetatable(cfg, library)
         end
 
+        function library:tabbox(properties)
+            properties = properties or {}
+
+            local cfg = {
+                name = properties.name or properties.Name or "Tabbox";
+                tabs = {};
+                current_tab;
+                items = {};
+            }
+
+            local items = cfg.items; do
+                items[ "outline" ] = library:create( "Frame" , {
+                    Parent = self.items[ "elements" ];
+                    Name = "Tabbox";
+                    Size = dim2(1, 0, 0, 0);
+                    AutomaticSize = Enum.AutomaticSize.Y;
+                    BackgroundColor3 = rgb(25, 25, 29);
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0;
+                    ClipsDescendants = true
+                });
+
+                library:create( "UICorner" , {
+                    Parent = items[ "outline" ];
+                    CornerRadius = dim(0, 7)
+                });
+
+                items[ "tabs" ] = library:create( "Frame" , {
+                    Parent = items[ "outline" ];
+                    Position = dim2(0, 1, 0, 1);
+                    Size = dim2(1, -2, 0, 35);
+                    BackgroundColor3 = rgb(19, 19, 21);
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0
+                });
+
+                library:create( "UICorner" , {
+                    Parent = items[ "tabs" ];
+                    CornerRadius = dim(0, 7)
+                });
+
+                library:create( "UIListLayout" , {
+                    Parent = items[ "tabs" ];
+                    FillDirection = Enum.FillDirection.Horizontal;
+                    Padding = dim(0, 4);
+                    SortOrder = Enum.SortOrder.LayoutOrder
+                });
+
+                library:create( "UIPadding" , {
+                    Parent = items[ "tabs" ];
+                    PaddingLeft = dim(0, 7);
+                    PaddingRight = dim(0, 7);
+                    PaddingTop = dim(0, 4);
+                    PaddingBottom = dim(0, 3)
+                });
+
+                items[ "page_holder" ] = library:create( "Frame" , {
+                    Parent = items[ "outline" ];
+                    Position = dim2(0, 1, 0, 36);
+                    Size = dim2(1, -2, 0, 0);
+                    AutomaticSize = Enum.AutomaticSize.Y;
+                    BackgroundTransparency = 1;
+                    BorderColor3 = rgb(0, 0, 0);
+                    BorderSizePixel = 0
+                });
+            end
+
+            function cfg:add_tab(tab_properties, icon)
+                local options = {}
+                if type(tab_properties) == "string" then
+                    options.name = tab_properties
+                    options.icon = icon
+                else
+                    tab_properties = tab_properties or {}
+                    for key, value in tab_properties do
+                        options[key] = value
+                    end
+                end
+
+                local data = {
+                    name = options.name or options.Name or "Tab";
+                    icon = options.icon or options.Icon;
+                    items = {};
+                }
+
+                local tab_items = data.items; do
+                    tab_items[ "button" ] = library:create( "TextButton" , {
+                        Parent = items[ "tabs" ];
+                        Text = "";
+                        AutoButtonColor = false;
+                        Size = dim2(0, 96, 0, 27);
+                        BackgroundColor3 = rgb(25, 25, 29);
+                        BorderColor3 = rgb(0, 0, 0);
+                        BorderSizePixel = 0
+                    });
+
+                    library:create( "UICorner" , {
+                        Parent = tab_items[ "button" ];
+                        CornerRadius = dim(0, 5)
+                    });
+
+                    if data.icon then
+                        tab_items[ "icon" ] = library:create( "ImageLabel" , {
+                            Parent = tab_items[ "button" ];
+                            Image = data.icon;
+                            ImageColor3 = rgb(145, 145, 145);
+                            Position = dim2(0, 8, 0.5, -8);
+                            Size = dim2(0, 16, 0, 16);
+                            BackgroundTransparency = 1;
+                            BorderSizePixel = 0
+                        });
+                        library:apply_theme(tab_items[ "icon" ], "accent", "ImageColor3");
+                    end
+
+                    tab_items[ "label" ] = library:create( "TextLabel" , {
+                        Parent = tab_items[ "button" ];
+                        Position = dim2(0, data.icon and 28 or 8, 0, 0);
+                        Size = dim2(1, data.icon and -32 or -16, 1, 0);
+                        BackgroundTransparency = 1;
+                        Text = data.name;
+                        TextColor3 = rgb(145, 145, 145);
+                        FontFace = fonts.small;
+                        TextSize = 13;
+                        TextXAlignment = Enum.TextXAlignment.Left;
+                        BorderSizePixel = 0
+                    });
+
+                    tab_items[ "page" ] = library:create( "Frame" , {
+                        Parent = items[ "page_holder" ];
+                        Size = dim2(1, 0, 0, 0);
+                        AutomaticSize = Enum.AutomaticSize.Y;
+                        Visible = false;
+                        BackgroundTransparency = 1;
+                        BorderColor3 = rgb(0, 0, 0);
+                        BorderSizePixel = 0
+                    });
+
+                    tab_items[ "layout" ] = library:create( "UIListLayout" , {
+                        Parent = tab_items[ "page" ];
+                        Padding = dim(0, 8);
+                        SortOrder = Enum.SortOrder.LayoutOrder
+                    });
+
+                    library:create( "UIPadding" , {
+                        Parent = tab_items[ "page" ];
+                        PaddingLeft = dim(0, 8);
+                        PaddingRight = dim(0, 8);
+                        PaddingBottom = dim(0, 10);
+                        PaddingTop = dim(0, 8)
+                    });
+                end
+
+                data.items[ "elements" ] = tab_items[ "page" ]
+
+                function data:open()
+                    if cfg.current_tab then
+                        cfg.current_tab.items[ "page" ].Visible = false
+                        cfg.current_tab.items[ "label" ].TextColor3 = rgb(145, 145, 145)
+                    end
+
+                    cfg.current_tab = data
+                    tab_items[ "page" ].Visible = true
+                    tab_items[ "label" ].TextColor3 = rgb(255, 255, 255)
+                    task.defer(function()
+                        items[ "outline" ].AutomaticSize = Enum.AutomaticSize.Y
+                    end)
+                end
+
+                function data:Open()
+                    return data:open()
+                end
+
+                data = setmetatable(data, library)
+                cfg.tabs[#cfg.tabs + 1] = data
+
+                if not cfg.current_tab then
+                    data:open()
+                end
+
+                return data
+            end
+
+            function cfg:tab(tab_properties, icon)
+                return cfg:add_tab(tab_properties, icon)
+            end
+
+            function cfg:AddTab(tab_properties, icon)
+                return cfg:add_tab(tab_properties, icon)
+            end
+
+            function cfg:addTab(tab_properties, icon)
+                return cfg:add_tab(tab_properties, icon)
+            end
+
+            function cfg:Resize()
+                task.defer(function()
+                    items[ "outline" ].AutomaticSize = Enum.AutomaticSize.Y
+                end)
+            end
+
+            local initial_tabs = properties.tabs or properties.Tabs
+            if type(initial_tabs) == "table" then
+                for _, tab_properties in next, initial_tabs do
+                    cfg:add_tab(tab_properties)
+                end
+            end
+
+            return setmetatable(cfg, library)
+        end
+
         function library:groupbox(properties)
             properties = properties or {}
 
