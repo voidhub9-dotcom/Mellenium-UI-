@@ -16,7 +16,9 @@ The loader expects an environment that supports `loadstring` and `game:HttpGet`.
 local window = library:window({
     name = "VoidHub",
     suffix = "UI",
-    gameInfo = "VoidHub UI"
+    gameInfo = "VoidHub UI",
+    autoDPI = true,
+    customSize = {width = 760, height = 600}
 })
 ```
 
@@ -194,7 +196,13 @@ library:init_config(window)
 ```lua
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/voidhub9-dotcom/Mellenium-UI-/refs/heads/main/Millenium/Library.lua"))()
 
-local window = library:window({name = "VoidHub", suffix = "UI", gameInfo = "VoidHub UI"})
+local window = library:window({
+    name = "VoidHub",
+    suffix = "UI",
+    gameInfo = "VoidHub UI",
+    autoDPI = true,
+    customSize = {width = 700, height = 565}
+})
 window:seperator({name = "Main"})
 local main = window:tab({name = "Main", tabs = {"Home"}})
 local column = main:column({})
