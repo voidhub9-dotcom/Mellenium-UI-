@@ -77,6 +77,8 @@ The current scale is available through `window.current_dpi`.
 
 The library includes a floating mobile toggle by default. It stays above the UI, can close or reopen the menu, supports touch or mouse dragging, and is hidden on normal desktop resolutions unless `mobileOnly = false`.
 
+A tap toggles the menu only when the button is released without moving. A drag uses its own touch state and is clamped to the screen, so holding or dragging the button cannot accidentally close and reopen the UI. The main window, resize handle, sliders, dropdown options, and color controls also accept touch input.
+
 ```lua
 local window = library:window({
     name = "VoidHub",
@@ -101,8 +103,11 @@ Mobile toggle options:
 - `size` accepts a number, `{width = ..., height = ...}`, or a `UDim2`.
 - `position` accepts a `UDim2` or `{x = ..., y = ...}`.
 - `showWhenOpen` keeps the button visible while the main UI is open.
+- `mobileOnly` limits the button to touch-sized or small viewports.
 - `draggable` enables touch/mouse repositioning.
 - `window:set_mobile_toggle(false)` or `window:set_mobile_toggle(true)` changes it at runtime.
+
+Touch-friendly sizing is automatic: sliders use a larger invisible touch track while keeping a thin visual line, and hue/alpha bars use larger touch handles. Color and dropdown popups reposition above the control when there is not enough room below it.
 
 ## Add tabs
 
@@ -185,7 +190,9 @@ Group-box layout behavior:
 
 - Boxes automatically size to the controls inside them instead of using a full-height blank panel.
 - `maxHeight` caps a box's visible content area; extra controls scroll inside that box.
+- Group boxes automatically resize to their controls, then scroll vertically when the content exceeds `maxHeight`.
 - `scroll = true` gives each group-box column its own vertical scrollbar when the page is longer than the window.
+- Every group box uses the same control APIs, including dropdowns, sliders, color pickers, keybinds, textboxes, and buttons.
 - Use `scroll = false` to disable column scrolling, or `autoSize = false` with `size` when a fixed-height section is needed.
 
 Aliases are also available: `topLeft`, `topRight`, `bottomLeft`, and `bottomRight`.
@@ -306,6 +313,7 @@ local window = library:window({
         enabled = true,
         icon = "rbxassetid://6034767608",
         shape = "square",
+        size = 54,
         mobileOnly = true,
         showWhenOpen = true,
         draggable = true
