@@ -9,7 +9,16 @@ local window = library:window({
     customSize = {width = 760, height = 600},
     dpiScale = 1,
     minDPI = 0.55,
-    maxDPI = 1.15
+    maxDPI = 1.15,
+    mobileToggle = {
+        enabled = true,
+        icon = "rbxassetid://6034767608",
+        shape = "square",
+        size = 54,
+        mobileOnly = true,
+        showWhenOpen = true,
+        draggable = true
+    }
 })
 
 local icons = {
@@ -29,7 +38,10 @@ local combat, visuals, settings = window:tab({
 })
 
 -- Combat sub-tab: four full group boxes.
+-- Each box sizes itself from its controls; long content scrolls.
 local combat_boxes = combat:groupboxes({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "Auto Farm", icon = icons.combat},
         {name = "Targeting", icon = icons.player},
@@ -95,6 +107,8 @@ combat_boxes.bottom_right:button({
 
 -- Visuals sub-tab: another complete four-box layout.
 local visual_boxes = visuals:groupbox_grid({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "ESP", icon = icons.visual},
         {name = "Players", icon = icons.player},
@@ -122,6 +136,8 @@ visual_boxes.bottom_right:slider({
 
 -- Settings sub-tab: group boxes can contain config controls too.
 local settings_boxes = settings:group_boxes({
+    maxHeight = 260,
+    scroll = true,
     boxes = {
         {name = "Interface", icon = icons.settings},
         {name = "Theme", icon = icons.visual},
