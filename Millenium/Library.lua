@@ -841,8 +841,16 @@
                         return
                     end
 
+                    local current_camera = ws.CurrentCamera or camera
+                    local viewport = current_camera and current_camera.ViewportSize
+                    if not viewport then
+                        return
+                    end
+
                     local absolute_size = items[ "main" ].AbsoluteSize
-                    items[ "main" ].Position = dim2(0.5, -absolute_size.X / 2, 0.5, -absolute_size.Y / 2)
+                    local x = max(0, (viewport.X - absolute_size.X) / 2)
+                    local y = max(0, (viewport.Y - absolute_size.Y) / 2)
+                    items[ "main" ].Position = dim_offset(x, y)
                 end
 
                 function cfg:update_dpi()
