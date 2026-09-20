@@ -538,6 +538,24 @@
                 auto_dpi = true
             end
 
+            local auto_minimize = properties.auto_minimize
+            if auto_minimize == nil then
+                auto_minimize = properties.autoMinimize
+            end
+
+            local minimize_width = tonumber(properties.minimize_width or properties.minimizeWidth) or 900
+            local minimize_height = tonumber(properties.minimize_height or properties.minimizeHeight) or 600
+
+            if type(auto_minimize) == "table" then
+                minimize_width = tonumber(auto_minimize.width or auto_minimize.Width or auto_minimize[1]) or minimize_width
+                minimize_height = tonumber(auto_minimize.height or auto_minimize.Height or auto_minimize[2]) or minimize_height
+                auto_minimize = true
+            end
+
+            if auto_minimize == nil then
+                auto_minimize = false
+            end
+
             local dpi_scale = tonumber(properties.dpi_scale or properties.dpiScale or properties.scale or properties.Scale) or 1
             local dpi_min = tonumber(properties.min_dpi or properties.minDPI or properties.min_scale or properties.minScale) or 0.55
             local dpi_max = tonumber(properties.max_dpi or properties.maxDPI or properties.max_scale or properties.maxScale) or 1.15
@@ -569,6 +587,10 @@
                 game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI";
                 size = resolved_size;
                 auto_dpi = auto_dpi ~= false;
+                auto_minimize = auto_minimize == true;
+                minimize_width = max(1, minimize_width);
+                minimize_height = max(1, minimize_height);
+                auto_minimized = false;
                 dpi_scale = dpi_scale;
                 dpi_min = lower_dpi;
                 dpi_max = upper_dpi;
@@ -666,6 +688,30 @@
                     return self:update_dpi()
                 end
 
+                function cfg:update_auto_minimize()
+                    if not self.auto_minimize then
+                        return false
+                    end
+
+                    local current_camera = ws.CurrentCamera or camera
+                    if not current_camera then
+                        return false
+                    end
+
+                    local viewport = current_camera.ViewportSize
+                    local should_minimize = viewport.X <= self.minimize_width or viewport.Y <= self.minimize_height
+
+                    if self.auto_minimized ~= should_minimize then
+                        self.auto_minimized = should_minimize
+
+                        if self.toggle_menu then
+                            self.toggle_menu(not should_minimize)
+                        end
+                    end
+
+                    return should_minimize
+                end
+
                 local dpi_camera_connection
                 local function bind_dpi_camera(new_camera)
                     if dpi_camera_connection then
@@ -681,6 +727,10 @@
                         new_camera:GetPropertyChangedSignal("ViewportSize"),
                         function()
                             cfg:update_dpi()
+
+                            if cfg.toggle_menu then
+                                cfg:update_auto_minimize()
+                            end
                         end
                     )
 
@@ -901,7 +951,11 @@
                 -- cfg.tween = 
                 
                 library[ "items" ].Enabled = bool
-            end 
+            end
+
+            if cfg.auto_minimize then
+                cfg:update_auto_minimize()
+            end
                 
             return setmetatable(cfg, library)
         end 
