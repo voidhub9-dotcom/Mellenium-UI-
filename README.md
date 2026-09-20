@@ -17,6 +17,6 @@ A vendored copy of the Millenium UI library from [i77lhm/Libraries](https://gith
 - Roblox icon asset: http://www.roblox.com/asset/?id=6034767608
 - Roblox icon asset: http://www.roblox.com/asset/?id=6022668898
 
-The example keeps the original upstream loader link so it resolves the same Library.lua as the source UI.
+The example loads this repository's own raw Millenium/Library.lua link.
 
 The upstream MIT license and attribution are preserved in [LICENSE](LICENSE).
