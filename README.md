@@ -1,22 +1,25 @@
-# Mellenium UI
+# VoidHub UI
 
-A vendored copy of the Millenium UI library from [i77lhm/Libraries](https://github.com/i77lhm/Libraries/tree/main/Millenium).
+The UI library and example used by VoidHub.
 
 ## Files
 
 - [Library.lua](Millenium/Library.lua)
 - [Example.lua](Millenium/Example.lua)
-- [Original source directory](https://github.com/i77lhm/Libraries/tree/main/Millenium)
+- [LICENSE](LICENSE)
 
-## Dependency links
+## Loader
 
-- Original Library.lua: https://raw.githubusercontent.com/i77lhm/Libraries/refs/heads/main/Millenium/Library.lua
-- Original Example.lua: https://raw.githubusercontent.com/i77lhm/Libraries/refs/heads/main/Millenium/Example.lua
-- Inter Medium font: https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/Inter_28pt-Medium.ttf
-- Inter SemiBold font: https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/Inter_28pt-SemiBold.ttf
-- Roblox icon asset: http://www.roblox.com/asset/?id=6034767608
-- Roblox icon asset: http://www.roblox.com/asset/?id=6022668898
+The example loads the library from this repository:
 
-The example loads this repository's own raw Millenium/Library.lua link.
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/voidhub9-dotcom/Mellenium-UI-/refs/heads/main/Millenium/Library.lua"))()
+```
 
-The upstream MIT license and attribution are preserved in [LICENSE](LICENSE).
+## Runtime dependencies
+
+The library loads its configured Inter fonts and Roblox icon assets from the URLs defined inside Library.lua.
+
+## License
+
+The upstream MIT license and required attribution are preserved in LICENSE.
