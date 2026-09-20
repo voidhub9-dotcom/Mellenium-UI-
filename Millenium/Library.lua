@@ -870,6 +870,7 @@
                     items[ "dpi_scale" ].Scale = scale
                     self.current_dpi = scale
                     task.defer(center_main)
+                    task.delay(0.1, center_main)
 
                     return scale
                 end
