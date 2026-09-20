@@ -105,6 +105,32 @@ combat_boxes.bottom_right:button({
     end
 })
 
+-- A groupbox can also contain a nested tabbox.
+local combat_modes = combat_boxes.bottom_right:tabbox({name = "Target modes"})
+local target_tab = combat_modes:tab({
+    name = "Target",
+    icon = icons.player
+})
+target_tab:dropdown({
+    name = "Target mode",
+    items = {"Nearest", "Lowest health", "Crosshair"},
+    default = "Nearest"
+})
+target_tab:slider({
+    name = "Target range",
+    min = 25,
+    max = 500,
+    interval = 5,
+    default = 100
+})
+
+local filters_tab = combat_modes:AddTab({
+    name = "Filters",
+    icon = icons.visual
+})
+filters_tab:toggle({name = "Players only", seperator = true})
+filters_tab:colorpicker({name = "Filter color"})
+
 -- Visuals sub-tab: another complete four-box layout.
 local visual_boxes = visuals:groupbox_grid({
     maxHeight = 260,
