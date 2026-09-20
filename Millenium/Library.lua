@@ -4127,6 +4127,11 @@
             end
         
             items[ "keybind_holder" ].Activated:Connect(function()
+                if keybind_suppress_activation then
+                    keybind_suppress_activation = false
+                    return
+                end
+
                 task.wait()
                 items[ "key" ].Text = "..."	
 
@@ -4138,10 +4143,34 @@
                 end)
             end)
 
-            items[ "keybind_holder" ].MouseButton2Down:Connect(function()
-                cfg.open = not cfg.open 
+            local keybind_touch
+            local keybind_long_press = false
+            local keybind_suppress_activation = false
 
-                cfg.set_visible(cfg.open)
+            library:connection(items[ "keybind_holder" ].InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                    cfg.open = not cfg.open
+                    cfg.set_visible(cfg.open)
+                elseif input.UserInputType == Enum.UserInputType.Touch then
+                    keybind_touch = input
+                    keybind_long_press = false
+
+                    task.delay(0.45, function()
+                        if keybind_touch == input and input.UserInputState ~= Enum.UserInputState.End then
+                            keybind_long_press = true
+                            keybind_suppress_activation = true
+                            cfg.open = not cfg.open
+                            cfg.set_visible(cfg.open)
+                        end
+                    end)
+                end
+            end)
+
+            library:connection(uis.InputEnded, function(input)
+                if keybind_touch == input then
+                    keybind_touch = nil
+                    keybind_long_press = false
+                end
             end)
 
             library:connection(uis.InputBegan, function(input, game_event) 
