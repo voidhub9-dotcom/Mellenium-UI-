@@ -119,7 +119,7 @@ The method is spelled `seperator` in the library and must be called with that sp
 ## Columns and sections
 
 ```lua
-local column = enemies:column({})
+local column = enemies:column({scroll = true})
 local section = column:section({
     name = "General",
     default = true,
@@ -130,7 +130,10 @@ local section = column:section({
 
 - `default` controls whether the section starts open.
 - `toggle` controls whether the section can be collapsed.
-- `size` controls the section width.
+- `size` controls the section's relative height in its column.
+- `autoSize = true` makes the section fit its controls.
+- `minHeight` and `maxHeight` set the content viewport limits.
+- `scroll = true` makes a column vertically scrollable.
 
 A tab can also contain sub-tabs:
 
