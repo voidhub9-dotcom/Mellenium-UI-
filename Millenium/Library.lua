@@ -2985,8 +2985,8 @@
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
                 if viewport then
-                    local holder_size = items[ "dropdown_holder" ].AbsoluteSize
                     local trigger = items[ "dropdown" ]
+                    local holder_size = vec2(trigger.AbsoluteSize.X, bool and cfg.y_size or 0)
                     local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - holder_size.X - 6))
                     local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 8
                     if y + holder_size.Y > viewport.Y - 6 then
