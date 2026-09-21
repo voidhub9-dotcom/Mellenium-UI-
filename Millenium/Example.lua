@@ -28,113 +28,156 @@ local icons = {
     player = "rbxassetid://129380150574313"
 }
 
+-- Search filters controls across every group box.
+window:AddSearch({placeholder = "Search features..."})
 window:seperator({name = "Main"})
 
--- One top-level tab can contain multiple sub-tabs.
+-- One top-level group tab with three sub-tabs.
 local combat, visuals, settings = window:tab({
     name = "Main",
     icon = icons.combat,
     tabs = {"Combat", "Visuals", "Settings"}
 })
 
--- Combat sub-tab: four full group boxes.
--- Each box sizes itself from its controls; long content scrolls.
-local combat_boxes = combat:groupboxes({
-    maxHeight = 260,
+-- Each page uses a complete responsive 2x2 group-box layout.
+-- Boxes collapse from their headers, fit their controls, and scroll at maxHeight.
+local combatBoxes = combat:groupboxes({
+    maxHeight = 240,
     scroll = true,
+    singleColumnWidth = 520,
     boxes = {
         {name = "Auto Farm", icon = icons.combat},
         {name = "Targeting", icon = icons.player},
         {name = "Movement", icon = icons.visual},
-        {name = "Combat Settings", icon = icons.settings}
+        {name = "Combat Tools", icon = icons.settings}
     }
 })
 
-combat_boxes.top_left:toggle({
+local autoFarm = combatBoxes.top_left:toggle({
     name = "Enable auto farm",
     flag = "auto_farm",
     seperator = true,
+    info = "Controls every linked farming option.",
     callback = function(enabled)
-        print("Auto farm:", enabled)
+        library:Notify({
+            name = "Auto Farm",
+            info = enabled and "Enabled" or "Disabled"
+        })
     end
 })
 
-combat_boxes.top_left:dropdown({
-    name = "Farm target",
+combatBoxes.top_left:multi_dropdown({
+    name = "Farm targets",
+    flag = "farm_targets",
     items = {"Enemies", "Bosses", "Players"},
-    default = "Enemies",
-    seperator = true
-})
+    default = {"Enemies"},
+    info = "Multi-select includes Select All, Clear, and option filtering."
+}):DependsOn("auto_farm", true, "enabled")
 
-combat_boxes.top_right:toggle({name = "Auto attack", seperator = true})
-combat_boxes.top_right:toggle({name = "Auto parry", seperator = true})
-combat_boxes.top_right:keybind({
+combatBoxes.top_left:dropdown({
+    name = "Farm mode",
+    flag = "farm_mode",
+    items = {"Tween", "Pathfind", "Instant"},
+    default = "Tween"
+}):DependsOn("auto_farm", true, "enabled")
+
+combatBoxes.top_right:toggle({
+    name = "Auto attack",
+    flag = "auto_attack",
+    seperator = true
+}):DependsOn("auto_farm", true, "enabled")
+
+combatBoxes.top_right:toggle({
+    name = "Auto parry",
+    flag = "auto_parry",
+    seperator = true
+}):DependsOn("auto_farm", true, "enabled")
+
+combatBoxes.top_right:keybind({
     name = "Combat key",
+    flag = "combat_key",
     callback = function(value)
         print("Combat key:", value)
     end
 })
 
-combat_boxes.bottom_left:slider({
+combatBoxes.bottom_left:slider({
     name = "Farm distance",
+    flag = "farm_distance",
     min = 25,
     max = 500,
     interval = 5,
-    callback = function(value)
-        print("Distance:", value)
-    end
-})
+    default = 100,
+    info = "The larger touch track makes this mobile friendly."
+}):DependsOn("auto_farm", true, "enabled")
 
-combat_boxes.bottom_left:dropdown({
+combatBoxes.bottom_left:dropdown({
     name = "Movement mode",
     items = {"Tween", "Instant"},
     default = "Tween"
 })
 
-combat_boxes.bottom_right:colorpicker({
-    name = "Target color",
-    callback = function(value)
-        print("Target color:", value)
+local farmProgress = combatBoxes.bottom_left:progressbar({
+    name = "Farm progress",
+    min = 0,
+    max = 100,
+    default = 35
+})
+
+local combatStatus = combatBoxes.bottom_right:status({
+    name = "Combat",
+    default = "Ready",
+    color = Color3.fromRGB(92, 220, 140)
+})
+
+local cooldown = combatBoxes.bottom_right:timer({
+    name = "Ability cooldown",
+    duration = 10
+})
+
+combatBoxes.bottom_right:button({
+    name = "Start demo",
+    callback = function()
+        farmProgress:Set(100)
+        combatStatus:Set("Running", Color3.fromRGB(92, 220, 140))
+        cooldown:Start()
     end
 })
 
-combat_boxes.bottom_right:button({
+combatBoxes.bottom_right:button({
     name = "Reset combat settings",
     callback = function()
-        print("Combat settings reset")
+        library:Confirm({
+            title = "Reset combat?",
+            message = "This resets the demo combat controls.",
+            confirmText = "Reset",
+            callback = function()
+                autoFarm.set(false)
+                farmProgress:Set(0)
+                combatStatus:Set("Ready")
+                cooldown:Reset()
+                library:Notify("Combat settings reset")
+            end
+        })
     end
 })
 
--- A groupbox can also contain a nested tabbox.
-local combat_modes = combat_boxes.bottom_right:tabbox({name = "Target modes"})
-local target_tab = combat_modes:tab({
-    name = "Target",
-    icon = icons.player
-})
-target_tab:dropdown({
+-- Nested tabs work inside any group box.
+local targetModes = combatBoxes.top_right:AddTabbox({name = "Target modes"})
+local targetTab = targetModes:AddTab({name = "Target", icon = icons.player})
+targetTab:dropdown({
     name = "Target mode",
     items = {"Nearest", "Lowest health", "Crosshair"},
     default = "Nearest"
 })
-target_tab:slider({
-    name = "Target range",
-    min = 25,
-    max = 500,
-    interval = 5,
-    default = 100
-})
+local filtersTab = targetModes:AddTab({name = "Filters", icon = icons.visual})
+filtersTab:toggle({name = "Players only", seperator = true})
+filtersTab:colorpicker({name = "Filter color"})
 
-local filters_tab = combat_modes:AddTab({
-    name = "Filters",
-    icon = icons.visual
-})
-filters_tab:toggle({name = "Players only", seperator = true})
-filters_tab:colorpicker({name = "Filter color"})
-
--- Visuals sub-tab: another complete four-box layout.
-local visual_boxes = visuals:groupbox_grid({
-    maxHeight = 260,
+local visualBoxes = visuals:groupbox_grid({
+    maxHeight = 240,
     scroll = true,
+    singleColumnWidth = 520,
     boxes = {
         {name = "ESP", icon = icons.visual},
         {name = "Players", icon = icons.player},
@@ -143,57 +186,203 @@ local visual_boxes = visuals:groupbox_grid({
     }
 })
 
-visual_boxes.top_left:toggle({name = "Enable ESP", seperator = true})
-visual_boxes.top_left:dropdown({
+visualBoxes.top_left:toggle({name = "Enable ESP", flag = "esp_enabled", seperator = true})
+visualBoxes.top_left:dropdown({
     name = "ESP mode",
     items = {"Box", "Highlight", "Tracer"},
     default = "Box"
 })
-visual_boxes.top_right:toggle({name = "Player names", seperator = true})
-visual_boxes.top_right:toggle({name = "Health bars", seperator = true})
-visual_boxes.bottom_left:toggle({name = "World items", seperator = true})
-visual_boxes.bottom_left:colorpicker({name = "ESP color"})
-visual_boxes.bottom_right:slider({
+visualBoxes.top_left:colorpicker({name = "ESP color"})
+
+visualBoxes.top_right:toggle({name = "Player names", seperator = true})
+visualBoxes.top_right:toggle({name = "Health bars", seperator = true})
+visualBoxes.top_right:slider({name = "Text size", min = 10, max = 24, default = 14})
+
+visualBoxes.bottom_left:toggle({name = "World items", seperator = true})
+visualBoxes.bottom_left:multi_dropdown({
+    name = "World filters",
+    items = {"Chests", "Drops", "NPCs", "Doors"},
+    default = {"Chests", "Drops"}
+})
+
+visualBoxes.bottom_right:slider({
     name = "Render distance",
     min = 100,
     max = 2000,
-    interval = 50
+    interval = 50,
+    default = 500
 })
+visualBoxes.bottom_right:status({name = "Renderer", default = "60 FPS"})
 
--- Settings sub-tab: group boxes can contain config controls too.
-local settings_boxes = settings:group_boxes({
-    maxHeight = 260,
+local settingsBoxes = settings:group_boxes({
+    maxHeight = 240,
     scroll = true,
+    singleColumnWidth = 520,
     boxes = {
         {name = "Interface", icon = icons.settings},
         {name = "Theme", icon = icons.visual},
         {name = "Profile", icon = icons.player},
-        {name = "About", icon = icons.combat}
+        {name = "Extensions", icon = icons.combat}
     }
 })
 
-settings_boxes.top_left:keybind({
+settingsBoxes.top_left:keybind({
     name = "Menu bind",
-    callback = function(value)
-        print("Menu bind:", value)
+    flag = "menu_bind"
+})
+settingsBoxes.top_left:toggle({name = "Show notifications", flag = "show_notifications", default = true, seperator = true})
+
+local mobileDrawer = library:CreateDrawer({
+    title = "Quick Actions",
+    height = 190,
+    build = function(content, drawer)
+        local text = library:create("TextLabel", {
+            Parent = content,
+            Size = UDim2.new(1, -8, 0, 44),
+            BackgroundTransparency = 1,
+            Text = "A touch-friendly bottom drawer for mobile actions.",
+            TextColor3 = Color3.fromRGB(225, 225, 230),
+            TextWrapped = true,
+            Font = Enum.Font.Gotham,
+            TextSize = 14,
+            ZIndex = 74
+        })
+        local close = library:create("TextButton", {
+            Parent = content,
+            Size = UDim2.new(1, -8, 0, 38),
+            BackgroundColor3 = Color3.fromRGB(42, 42, 46),
+            BorderSizePixel = 0,
+            Text = "Done",
+            TextColor3 = Color3.fromRGB(245, 245, 245),
+            Font = Enum.Font.GothamMedium,
+            TextSize = 14,
+            ZIndex = 74
+        })
+        library:create("UICorner", {Parent = close, CornerRadius = UDim.new(0, 8)})
+        library:connection(close.Activated, function()
+            drawer:Close()
+        end)
     end
 })
 
-settings_boxes.top_left:toggle({name = "Show notifications", seperator = true})
-settings_boxes.top_right:colorpicker({name = "Accent color"})
-settings_boxes.bottom_left:textbox({
+settingsBoxes.top_left:button({
+    name = "Open mobile drawer",
+    callback = function()
+        mobileDrawer:Open()
+    end
+})
+
+settingsBoxes.top_left:button({
+    name = "Unload UI",
+    callback = function()
+        library:Confirm({
+            title = "Unload VoidHub UI?",
+            message = "This removes every UI object and disconnects all listeners.",
+            confirmText = "Unload",
+            callback = function()
+                library:Unload()
+            end
+        })
+    end
+})
+
+settingsBoxes.top_right:theme_manager({
+    name = "Theme preset",
+    default = "Void",
+    transparency = 0
+})
+settingsBoxes.top_right:colorpicker({
+    name = "Custom accent",
+    callback = function(color)
+        library:update_theme("accent", color)
+    end
+})
+
+settingsBoxes.bottom_left:profile({name = "VoidHub User"})
+settingsBoxes.bottom_left:textbox({
     name = "Profile name",
     flag = "profile_name"
 })
-settings_boxes.bottom_left:button({
-    name = "Save profile",
+
+local keybindManager = library:CreateKeybindManager(settingsBoxes.bottom_left)
+settingsBoxes.bottom_left:button({
+    name = "Refresh keybind list",
     callback = function()
-        print("Profile saved")
+        keybindManager:Refresh()
+        local conflicts = library:FindKeybindConflicts()
+        library:Notify({
+            name = "Keybind Manager",
+            info = #conflicts == 0 and "No conflicts found" or (#conflicts .. " conflict(s) found")
+        })
     end
 })
-settings_boxes.bottom_right:label({
-    name = "VoidHub UI",
-    info = "Four group boxes, nested sub-tabs, icons, and working controls."
+
+library:RegisterPlugin("ExamplePlugin", function(_, context)
+    print("ExamplePlugin loaded:", context.message)
+    return {
+        Unload = function()
+            print("ExamplePlugin unloaded")
+        end
+    }
+end)
+
+settingsBoxes.bottom_right:button({
+    name = "Load example plugin",
+    callback = function()
+        local ok, result = library:LoadPlugin("ExamplePlugin", {message = "Hello from VoidHub"})
+        library:Notify({
+            name = "Plugin",
+            info = ok and "ExamplePlugin loaded" or tostring(result)
+        })
+    end
 })
 
+settingsBoxes.bottom_right:button({
+    name = "Unload example plugin",
+    callback = function()
+        local ok, result = library:UnloadPlugin("ExamplePlugin")
+        library:Notify({
+            name = "Plugin",
+            info = ok and "ExamplePlugin unloaded" or tostring(result)
+        })
+    end
+})
+
+settingsBoxes.bottom_right:button({
+    name = "Test notification",
+    callback = function()
+        library:Notify({
+            name = "VoidHub UI",
+            info = "Notifications are saved in the session history."
+        })
+    end
+})
+
+local notificationCenter = library:CreateNotificationCenter(settingsBoxes.bottom_right, {limit = 3})
+settingsBoxes.bottom_right:button({
+    name = "Refresh notification history",
+    callback = function()
+        notificationCenter:Refresh()
+    end
+})
+
+-- Adds the built-in Save, Load, and Delete config page after all flags exist.
 library:init_config(window)
+
+-- Advanced config helpers:
+-- library:SetConfigScope("game")
+-- library:DuplicateConfig("Main", "Main Backup")
+-- library:RenameConfig("Main Backup", "Archived")
+-- local ok, json = library:ExportConfig("Main")
+-- library:ImportConfig("Imported", json)
+-- library:EnableAutoSave("Main", 30)
+-- library:DisableAutoSave()
+
+getgenv().VoidHubUI = {
+    library = library,
+    window = window,
+    mobileDrawer = mobileDrawer,
+    combatBoxes = combatBoxes,
+    visualBoxes = visualBoxes,
+    settingsBoxes = settingsBoxes
+}
