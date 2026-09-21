@@ -269,10 +269,15 @@ The profile card displays the local avatar and updates FPS, ping, and executor i
 ## Notifications and keybind manager
 
 \`\`\`lua
-library:Notify({
+local notification = library:Notify({
     name = "VoidHub UI",
-    info = "Feature enabled"
+    info = "Feature enabled",
+    type = "success", -- "info", "success", "warning", or "error"
+    lifetime = 4
 })
+
+-- Notifications can also be closed manually.
+notification:Close()
 
 local center = library:CreateNotificationCenter(boxes.bottom_right, {limit = 5})
 center:Refresh()
@@ -284,6 +289,8 @@ manager:Refresh()
 local conflicts = library:FindKeybindConflicts()
 local keybinds = library:GetKeybinds()
 \`\`\`
+
+Notifications stack beneath the mobile safe area, show at most four cards on small viewports, include a close button and countdown bar, and restack automatically when one closes.
 
 Notification history is session-local and capped at 100 entries.
 
