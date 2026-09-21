@@ -322,13 +322,24 @@ section:slider({
 })
 ```
 
-## Save configuration
+## Configuration system
 
-Call this after creating the complete window:
+Call this after creating the complete window to add the mobile-friendly Configs tab:
 
 ```lua
 library:init_config(window)
 ```
+
+The built-in tab validates names, refreshes the saved-config list, and supports Save, Load, and Delete. Config names can also be managed directly:
+
+```lua
+local saved, name = library:save_config("My Config")
+local loaded, loadError = library:load_named_config("My Config")
+local deleted, deleteError = library:delete_config("My Config")
+local configs = library:get_config_list()
+```
+
+Empty names are rejected, invalid filename characters are sanitized, and UI-only config fields are not written into saved files.
 
 ## Complete group-box and sub-tab example
 
