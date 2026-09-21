@@ -44,7 +44,7 @@ local combat, visuals, settings = window:tab({
 local combatBoxes = combat:groupboxes({
     maxHeight = 240,
     scroll = true,
-    singleColumnWidth = 520,
+    singleColumnWidth = 700,
     boxes = {
         {name = "Auto Farm", icon = icons.combat},
         {name = "Targeting", icon = icons.player},
@@ -177,7 +177,7 @@ filtersTab:colorpicker({name = "Filter color"})
 local visualBoxes = visuals:groupbox_grid({
     maxHeight = 240,
     scroll = true,
-    singleColumnWidth = 520,
+    singleColumnWidth = 700,
     boxes = {
         {name = "ESP", icon = icons.visual},
         {name = "Players", icon = icons.player},
@@ -217,7 +217,7 @@ visualBoxes.bottom_right:status({name = "Renderer", default = "60 FPS"})
 local settingsBoxes = settings:group_boxes({
     maxHeight = 240,
     scroll = true,
-    singleColumnWidth = 520,
+    singleColumnWidth = 700,
     boxes = {
         {name = "Interface", icon = icons.settings},
         {name = "Theme", icon = icons.visual},
