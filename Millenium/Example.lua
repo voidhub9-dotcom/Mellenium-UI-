@@ -6,9 +6,9 @@ local window = library:window({
     gameInfo = "VoidHub UI",
     autoDPI = true,
     autoMinimize = {width = 900, height = 600},
-    customSize = {width = 760, height = 600},
+    customSize = {width = 760, height = 500},
     dpiScale = 1,
-    minDPI = 0.55,
+    minDPI = 0.65,
     maxDPI = 1.15,
     mobileToggle = {
         enabled = true,
