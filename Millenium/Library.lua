@@ -5271,31 +5271,31 @@
             local current_camera = ws.CurrentCamera or camera
             local viewport = current_camera and current_camera.ViewportSize or vec2(800, 600)
             local compact = uis.TouchEnabled or viewport.X <= 700 or viewport.Y <= 500
-            local default_width = compact and 236 or 286
-            local min_width = compact and 190 or 220
+            local default_width = compact and 184 or 286
+            local min_width = compact and 164 or 220
             local margin = compact and 10 or 14
-            local gap = compact and 7 or 9
+            local gap = compact and 6 or 9
             local width = clamp(
                 tonumber(options.width) or default_width,
                 min_width,
                 max(min_width, viewport.X - (margin * 2))
             )
             local height = compact
-                and (has_info and 54 or 42)
+                and (has_info and 44 or 36)
                 or (has_info and 64 or 48)
 
-            local icon_size = compact and 20 or 24
-            local icon_x = compact and 11 or 13
-            local icon_y = has_info and (compact and 10 or 11) or floor((height - icon_size) / 2)
-            local text_x = compact and 40 or 47
-            local close_size = compact and 19 or 22
-            local close_margin = compact and 7 or 8
-            local title_y = has_info and (compact and 7 or 9) or 0
-            local title_height = has_info and 18 or height
-            local title_size = compact and 12 or 13
-            local body_y = compact and 25 or 29
-            local body_height = height - body_y - 7
-            local body_size = compact and 10 or 11
+            local icon_size = compact and 16 or 24
+            local icon_x = compact and 8 or 13
+            local icon_y = has_info and (compact and 8 or 11) or floor((height - icon_size) / 2)
+            local text_x = compact and 30 or 47
+            local close_size = compact and 16 or 22
+            local close_margin = compact and 6 or 8
+            local title_y = has_info and (compact and 4 or 9) or 0
+            local title_height = has_info and (compact and 17 or 18) or height
+            local title_size = compact and 11 or 13
+            local body_y = compact and 21 or 29
+            local body_height = height - body_y - (compact and 4 or 7)
+            local body_size = compact and 9 or 11
 
             local items = {}
             items.notification = notification_library:create("Frame", {
@@ -5316,7 +5316,7 @@
 
             notification_library:create("UICorner", {
                 Parent = items.notification;
-                CornerRadius = dim(0, compact and 7 or 8);
+                CornerRadius = dim(0, compact and 9 or 8);
             })
 
             items.stroke = notification_library:create("UIStroke", {
@@ -5348,7 +5348,7 @@
                 Text = icons[kind] or icons.info;
                 TextColor3 = accent;
                 FontFace = fonts.font;
-                TextSize = compact and 12 or 14;
+                TextSize = compact and 10 or 14;
                 ZIndex = 111;
             })
             items.icon:SetAttribute("VoidHubShownTransparency", 0.84)
@@ -5395,7 +5395,7 @@
             items.close = notification_library:create("TextButton", {
                 Parent = items.notification;
                 AnchorPoint = vec2(1, 0);
-                Position = dim2(1, -close_margin, 0, compact and 7 or 8);
+                Position = dim2(1, -close_margin, 0, compact and 5 or 8);
                 Size = dim2(0, close_size, 0, close_size);
                 BackgroundColor3 = rgb(25, 25, 30);
                 BackgroundTransparency = 0.18;
@@ -5404,7 +5404,7 @@
                 Text = "×";
                 TextColor3 = rgb(142, 142, 153);
                 FontFace = fonts.small;
-                TextSize = compact and 14 or 16;
+                TextSize = compact and 12 or 16;
                 ZIndex = 112;
             })
             items.close:SetAttribute("VoidHubShownTransparency", 0.18)
@@ -5464,7 +5464,7 @@
             end)
 
             notifications.notifs[#notifications.notifs + 1] = items.notification
-            local max_visible = compact and 2 or 4
+            local max_visible = compact and 1 or 4
             while #notifications.notifs > max_visible do
                 local oldest = table.remove(notifications.notifs, 1)
                 if oldest and oldest.Parent then
