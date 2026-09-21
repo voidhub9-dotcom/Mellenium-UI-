@@ -867,8 +867,18 @@
                             viewport.X / self.dpi_reference.X,
                             viewport.Y / self.dpi_reference.Y
                         )
+                        local available_width = max(1, viewport.X - 24)
+                        local available_height = max(1, viewport.Y - 24)
+                        local base_width = max(1, self.size.X.Offset)
+                        local base_height = max(1, self.size.Y.Offset)
+                        local fit_scale = min(
+                            available_width / base_width,
+                            available_height / base_height
+                        )
+                        local target_scale = min(viewport_scale * self.dpi_scale, fit_scale)
+                        local effective_min = min(self.dpi_min, fit_scale)
 
-                        scale = clamp(viewport_scale * self.dpi_scale, self.dpi_min, self.dpi_max)
+                        scale = clamp(target_scale, effective_min, self.dpi_max)
                     end
 
                     items[ "dpi_scale" ].Scale = scale
