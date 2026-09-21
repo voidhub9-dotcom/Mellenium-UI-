@@ -5201,7 +5201,7 @@
             end
             notifications.notifs = active
 
-            local offset = get_gui_offset() + 10
+            local offset = get_gui_offset() + 6
             for _, notification in active do
                 local height = notification:GetAttribute("VoidHubNotificationHeight")
                     or notification.AbsoluteSize.Y
@@ -5247,59 +5247,73 @@
         end
 
         function notifications:create_notification(options)
+            if type(options) == "string" then
+                options = {Description = options}
+            end
             options = options or {}
-            local notification_library = library
-            local kind = string.lower(tostring(options.type or options.kind or "info"))
-            local colors = {
-                info = themes.preset.accent;
-                success = rgb(65, 210, 143);
-                warning = rgb(239, 181, 69);
-                error = rgb(238, 82, 104);
-            }
-            local icons = {
-                info = "i";
-                success = "✓";
-                warning = "!";
-                error = "×";
-            }
 
-            local accent = options.color or colors[kind] or colors.info
-            local title_text = tostring(options.name or options.title or "VoidHub")
-            local info_text = tostring(options.info or options.message or "")
-            local lifetime = max(1, tonumber(options.lifetime or options.duration) or 4)
+            local notification_library = library
             local current_camera = ws.CurrentCamera or camera
             local viewport = current_camera and current_camera.ViewportSize or vec2(800, 600)
             local compact = uis.TouchEnabled or viewport.X <= 700 or viewport.Y <= 500
-            local display_text
-            if compact then
-                display_text = info_text ~= "" and info_text or title_text
-            else
-                display_text = info_text ~= "" and (title_text .. "  ·  " .. info_text) or title_text
-            end
+
+            local title_text = tostring(options.Title or options.title or options.name or "VoidHub")
+            local info_text = tostring(options.Description or options.description or options.info or options.message or "")
+            local lifetime = max(1, tonumber(options.Time or options.time or options.lifetime or options.duration) or 4)
+            local persistent = options.Persist == true or options.persist == true
+            local steps = tonumber(options.Steps or options.steps)
+            local closable = options.Closable == true or options.closable == true
+            local callback = options.Callback or options.callback
+            local accent = options.IconColor or options.iconColor or options.color or themes.preset.accent
+            local title_color = options.TitleColor or options.titleColor
+            local description_color = options.DescriptionColor or options.descriptionColor
+            if typeof(title_color) ~= "Color3" then title_color = rgb(244, 244, 247) end
+            if typeof(description_color) ~= "Color3" then description_color = rgb(226, 226, 231) end
+
+            local icon_name = options.Icon or options.icon
+            local icon_map = {
+                info = "i";
+                success = "✓";
+                check = "✓";
+                warning = "!";
+                error = "×";
+                x = "×";
+            }
+            local icon_text = icon_name and (icon_map[string.lower(tostring(icon_name))] or tostring(icon_name)) or nil
 
             local width = clamp(
-                tonumber(options.width) or (compact and 176 or 270),
-                compact and 148 or 210,
-                max(compact and 148 or 210, viewport.X - 20)
+                tonumber(options.Width or options.width) or (compact and 220 or 260),
+                compact and 190 or 220,
+                max(compact and 190 or 220, viewport.X - 12)
             )
-            local height = compact and 32 or 38
-            local margin = compact and 10 or 14
-            local gap = compact and 6 or 8
-            local icon_size = compact and 18 or 20
-            local icon_x = compact and 7 or 9
-            local icon_y = floor((height - icon_size) / 2)
-            local text_x = icon_x + icon_size + (compact and 7 or 8)
-            local text_right = compact and 9 or 11
+            local margin = 6
+            local gap = 8
+            local padding = 8
+            local title_height = 18
+            local description_line_height = compact and 15 or 16
+            local title_gap = info_text ~= "" and 4 or 0
+            local timer_visible = (not persistent) or steps ~= nil
+            local timer_height = timer_visible and 11 or 0
+            local max_chars = compact and 30 or 39
+
+            local function get_description_height(text)
+                if text == "" then return 0 end
+                local lines = clamp(math.ceil(#text / max_chars), 1, compact and 2 or 3)
+                return lines * description_line_height
+            end
+
+            local description_height = get_description_height(info_text)
+            local height = padding + title_height + title_gap + description_height + timer_height + padding
 
             local items = {}
             items.notification = notification_library:create("Frame", {
                 Parent = notification_library.items;
                 Name = "VoidHubNotification";
                 AnchorPoint = vec2(1, 0);
-                Position = dim2(1, width + margin + 14, 0, get_gui_offset() + 10);
+                Position = dim2(1, width + margin + 12, 0, get_gui_offset() + 6);
                 Size = dim2(0, width, 0, height);
-                BackgroundColor3 = rgb(13, 13, 16);
-                BackgroundTransparency = 0.02;
+                BackgroundColor3 = rgb(25, 25, 25);
+                BackgroundTransparency = 0;
                 BorderSizePixel = 0;
                 ClipsDescendants = true;
                 ZIndex = 110;
@@ -5310,108 +5324,203 @@
 
             notification_library:create("UICorner", {
                 Parent = items.notification;
-                CornerRadius = dim(0, compact and 8 or 9);
+                CornerRadius = dim(0, 4);
             })
 
-            items.stroke = notification_library:create("UIStroke", {
+            items.shadow_stroke = notification_library:create("UIStroke", {
                 Parent = items.notification;
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-                Color = rgb(48, 48, 56);
-                Transparency = 0.52;
+                Color = rgb(0, 0, 0);
+                Transparency = 0;
+                Thickness = 3;
+            })
+
+            items.outline_stroke = notification_library:create("UIStroke", {
+                Parent = items.notification;
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                Color = rgb(52, 52, 52);
+                Transparency = 0;
                 Thickness = 1;
             })
 
-            items.icon = notification_library:create("TextLabel", {
+            items.title_holder = notification_library:create("Frame", {
                 Parent = items.notification;
-                Position = dim2(0, icon_x, 0, icon_y);
-                Size = dim2(0, icon_size, 0, icon_size);
-                BackgroundColor3 = accent;
-                BackgroundTransparency = 0.84;
-                BorderSizePixel = 0;
-                Text = icons[kind] or icons.info;
-                TextColor3 = accent;
-                FontFace = fonts.font;
-                TextSize = compact and 10 or 11;
-                ZIndex = 112;
-            })
-            items.icon:SetAttribute("VoidHubShownTransparency", 0.84)
-            notification_library:create("UICorner", {
-                Parent = items.icon;
-                CornerRadius = dim(1, 0);
-            })
-
-            items.message = notification_library:create("TextLabel", {
-                Parent = items.notification;
-                Position = dim2(0, text_x, 0, 0);
-                Size = dim2(1, -(text_x + text_right), 1, -1);
+                Position = dim2(0, padding, 0, padding);
+                Size = dim2(1, -(padding * 2 + (closable and 18 or 0)), 0, title_height);
                 BackgroundTransparency = 1;
                 BorderSizePixel = 0;
-                Text = display_text;
-                TextColor3 = rgb(220, 220, 226);
+                ZIndex = 111;
+            })
+
+            local title_x = 0
+            if icon_text then
+                items.icon = notification_library:create("TextLabel", {
+                    Parent = items.title_holder;
+                    Position = dim2(0, 0, 0, 1);
+                    Size = dim2(0, 15, 0, 15);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    Text = icon_text;
+                    TextColor3 = accent;
+                    Font = Enum.Font.Code;
+                    TextSize = 14;
+                    ZIndex = 112;
+                })
+                title_x = 21
+            end
+
+            items.title = notification_library:create("TextLabel", {
+                Parent = items.title_holder;
+                Position = dim2(0, title_x, 0, 0);
+                Size = dim2(1, -title_x, 1, 0);
+                BackgroundTransparency = 1;
+                BorderSizePixel = 0;
+                Text = title_text;
+                TextColor3 = title_color;
                 TextXAlignment = Enum.TextXAlignment.Left;
                 TextYAlignment = Enum.TextYAlignment.Center;
                 TextTruncate = Enum.TextTruncate.AtEnd;
-                FontFace = fonts.small;
-                TextSize = compact and 10 or 12;
+                Font = Enum.Font.Code;
+                TextSize = 15;
                 ZIndex = 111;
             })
 
-            items.progress_track = notification_library:create("Frame", {
-                Parent = items.notification;
-                AnchorPoint = vec2(0, 1);
-                Position = dim2(0, 0, 1, 0);
-                Size = dim2(1, 0, 0, 1);
-                BackgroundColor3 = rgb(31, 31, 36);
-                BackgroundTransparency = 0.3;
-                BorderSizePixel = 0;
-                ZIndex = 111;
-            })
-            items.progress_track:SetAttribute("VoidHubShownTransparency", 0.3)
+            if closable then
+                items.close = notification_library:create("TextButton", {
+                    Parent = items.notification;
+                    AnchorPoint = vec2(1, 0);
+                    Position = dim2(1, -7, 0, 7);
+                    Size = dim2(0, 14, 0, 14);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    AutoButtonColor = false;
+                    Text = "×";
+                    TextColor3 = rgb(150, 150, 155);
+                    Font = Enum.Font.Code;
+                    TextSize = 15;
+                    ZIndex = 114;
+                })
+            end
 
-            items.progress = notification_library:create("Frame", {
-                Parent = items.progress_track;
-                Size = dim2(1, 0, 1, 0);
-                BackgroundColor3 = accent;
-                BackgroundTransparency = 0.16;
-                BorderSizePixel = 0;
-                ZIndex = 112;
-            })
-            items.progress:SetAttribute("VoidHubShownTransparency", 0.16)
-
-            items.hitbox = notification_library:create("TextButton", {
+            local description_y = padding + title_height + title_gap
+            items.description = notification_library:create("TextLabel", {
                 Parent = items.notification;
-                Size = dim2(1, 0, 1, 0);
+                Position = dim2(0, padding, 0, description_y);
+                Size = dim2(1, -(padding * 2), 0, description_height);
                 BackgroundTransparency = 1;
                 BorderSizePixel = 0;
-                Text = "";
-                AutoButtonColor = false;
-                ZIndex = 113;
+                Text = info_text;
+                TextColor3 = description_color;
+                TextWrapped = true;
+                TextXAlignment = Enum.TextXAlignment.Left;
+                TextYAlignment = Enum.TextYAlignment.Top;
+                Font = Enum.Font.Code;
+                TextSize = 14;
+                Visible = info_text ~= "";
+                ZIndex = 111;
             })
+
+            if timer_visible then
+                items.timer_holder = notification_library:create("Frame", {
+                    Parent = items.notification;
+                    Position = dim2(0, padding, 1, -(padding + 7));
+                    Size = dim2(1, -(padding * 2), 0, 7);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    ZIndex = 111;
+                })
+
+                items.timer_track = notification_library:create("Frame", {
+                    Parent = items.timer_holder;
+                    Position = dim2(0, 0, 0, 3);
+                    Size = dim2(1, 0, 0, 2);
+                    BackgroundColor3 = rgb(14, 14, 14);
+                    BorderSizePixel = 0;
+                    ZIndex = 111;
+                })
+                items.timer_track:SetAttribute("VoidHubShownTransparency", 0)
+                notification_library:create("UIStroke", {
+                    Parent = items.timer_track;
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(45, 45, 45);
+                    Transparency = 0;
+                    Thickness = 1;
+                })
+
+                items.progress = notification_library:create("Frame", {
+                    Parent = items.timer_track;
+                    Size = dim2(steps and 0 or 1, 0, 1, 0);
+                    BackgroundColor3 = themes.preset.accent;
+                    BackgroundTransparency = 0;
+                    BorderSizePixel = 0;
+                    ZIndex = 112;
+                })
+                items.progress:SetAttribute("VoidHubShownTransparency", 0)
+            end
 
             local api = {
                 items = items;
-                kind = kind;
+                kind = string.lower(tostring(options.type or options.kind or "info"));
                 closed = false;
+                Destroyed = false;
+                Steps = steps;
             }
 
-            function api:Close()
+            local function resize()
+                description_height = get_description_height(info_text)
+                title_gap = info_text ~= "" and 4 or 0
+                description_y = padding + title_height + title_gap
+                height = padding + title_height + title_gap + description_height + timer_height + padding
+
+                items.description.Text = info_text
+                items.description.Visible = info_text ~= ""
+                items.description.Position = dim2(0, padding, 0, description_y)
+                items.description.Size = dim2(1, -(padding * 2), 0, description_height)
+                items.notification.Size = dim2(0, width, 0, height)
+                items.notification:SetAttribute("VoidHubNotificationHeight", height)
+                notifications:refresh_notifs()
+            end
+
+            function api:ChangeTitle(text)
+                title_text = tostring(text or "")
+                items.title.Text = title_text
+                return self
+            end
+
+            function api:ChangeDescription(text)
+                info_text = tostring(text or "")
+                resize()
+                return self
+            end
+
+            function api:ChangeStep(step)
+                if not items.progress or not steps then return self end
+                local current = clamp(tonumber(step) or 0, 0, steps)
+                items.progress.Size = dim2(current / steps, 0, 1, 0)
+                return self
+            end
+
+            function api:Close(reason)
                 if api.closed then return false end
                 api.closed = true
+                api.Destroyed = true
+
+                if type(callback) == "function" then
+                    pcall(callback, reason or "script")
+                end
 
                 local index = table.find(notifications.notifs, items.notification)
-                if index then
-                    table.remove(notifications.notifs, index)
-                end
+                if index then table.remove(notifications.notifs, index) end
 
                 if items.notification and items.notification.Parent then
                     notifications:fade(items.notification, true)
                     notification_library:tween(
                         items.notification,
-                        {Position = dim2(1, width + margin + 14, 0, items.notification.Position.Y.Offset)},
-                        Enum.EasingStyle.Quint,
-                        0.18
+                        {Position = dim2(1, width + margin + 12, 0, items.notification.Position.Y.Offset - 2)},
+                        Enum.EasingStyle.Quad,
+                        0.22
                     )
-                    task.delay(0.2, function()
+                    task.delay(0.24, function()
                         if items.notification and items.notification.Parent then
                             items.notification:Destroy()
                         end
@@ -5422,40 +5531,49 @@
                 return true
             end
 
-            notification_library:connection(items.hitbox.Activated, function()
-                api:Close()
-            end)
+            function api:Destroy(reason)
+                return self:Close(reason or "script")
+            end
+
+            if items.close then
+                notification_library:connection(items.close.Activated, function()
+                    api:Close("user")
+                end)
+            end
 
             notifications.notifs[#notifications.notifs + 1] = items.notification
-            local max_visible = compact and 1 or 4
+            local max_visible = compact and 3 or 5
             while #notifications.notifs > max_visible do
                 local oldest = table.remove(notifications.notifs, 1)
-                if oldest and oldest.Parent then
-                    oldest:Destroy()
-                end
+                if oldest and oldest.Parent then oldest:Destroy() end
             end
 
             local target_offset = notifications:refresh_notifs()
-            items.notification.Position = dim2(1, width + margin + 14, 0, target_offset - height - gap)
+            items.notification.Position = dim2(1, width + margin + 12, 0, target_offset - height - gap)
             notifications:fade(items.notification, false)
             notification_library:tween(
                 items.notification,
                 {Position = dim2(1, -margin, 0, target_offset - height - gap)},
-                Enum.EasingStyle.Quint,
-                0.24
-            )
-            notification_library:tween(
-                items.progress,
-                {Size = dim2(0, 0, 1, 0)},
-                Enum.EasingStyle.Linear,
-                lifetime
+                Enum.EasingStyle.Quad,
+                0.25
             )
 
-            task.delay(lifetime, function()
-                if not api.closed and items.notification and items.notification.Parent then
-                    api:Close()
-                end
-            end)
+            if items.progress and not steps and not persistent then
+                notification_library:tween(
+                    items.progress,
+                    {Size = dim2(0, 0, 1, 0)},
+                    Enum.EasingStyle.Linear,
+                    lifetime
+                )
+            end
+
+            if not persistent and not steps then
+                task.delay(lifetime, function()
+                    if not api.closed and items.notification and items.notification.Parent then
+                        api:Close("timer")
+                    end
+                end)
+            end
 
             return api
         end
