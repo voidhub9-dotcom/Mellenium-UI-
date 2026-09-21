@@ -61,7 +61,8 @@ local autoFarm = combatBoxes.top_left:toggle({
     callback = function(enabled)
         library:Notify({
             name = "Auto Farm",
-            info = enabled and "Enabled" or "Disabled"
+            info = enabled and "Enabled" or "Disabled",
+            type = enabled and "success" or "warning"
         })
     end
 })
@@ -156,7 +157,7 @@ combatBoxes.bottom_right:button({
                 farmProgress:Set(0)
                 combatStatus:Set("Ready")
                 cooldown:Reset()
-                library:Notify("Combat settings reset")
+                library:Notify({name = "Combat", info = "Settings reset", type = "success"})
             end
         })
     end
@@ -312,7 +313,8 @@ settingsBoxes.bottom_left:button({
         local conflicts = library:FindKeybindConflicts()
         library:Notify({
             name = "Keybind Manager",
-            info = #conflicts == 0 and "No conflicts found" or (#conflicts .. " conflict(s) found")
+            info = #conflicts == 0 and "No conflicts found" or (#conflicts .. " conflict(s) found"),
+            type = #conflicts == 0 and "success" or "warning"
         })
     end
 })
@@ -332,7 +334,8 @@ settingsBoxes.bottom_right:button({
         local ok, result = library:LoadPlugin("ExamplePlugin", {message = "Hello from VoidHub"})
         library:Notify({
             name = "Plugin",
-            info = ok and "ExamplePlugin loaded" or tostring(result)
+            info = ok and "ExamplePlugin loaded" or tostring(result),
+            type = ok and "success" or "error"
         })
     end
 })
@@ -343,7 +346,8 @@ settingsBoxes.bottom_right:button({
         local ok, result = library:UnloadPlugin("ExamplePlugin")
         library:Notify({
             name = "Plugin",
-            info = ok and "ExamplePlugin unloaded" or tostring(result)
+            info = ok and "ExamplePlugin unloaded" or tostring(result),
+            type = ok and "success" or "error"
         })
     end
 })
@@ -353,7 +357,9 @@ settingsBoxes.bottom_right:button({
     callback = function()
         library:Notify({
             name = "VoidHub UI",
-            info = "Notifications are saved in the session history."
+            info = "Notifications are saved in the session history.",
+            type = "info",
+            lifetime = 4
         })
     end
 })
