@@ -5435,6 +5435,29 @@ do
         self.enabled = enabled
 
         if root then
+            if not self.__enabled_blocker or not self.__enabled_blocker.Parent then
+                self.__enabled_blocker = library:create("TextButton", {
+                    Parent = root;
+                    Name = "VoidHubDisabledBlocker";
+                    Text = "";
+                    AutoButtonColor = false;
+                    Active = true;
+                    Selectable = false;
+                    Size = dim2(1, 0, 1, 0);
+                    Position = dim2(0, 0, 0, 0);
+                    BackgroundColor3 = rgb(0, 0, 0);
+                    BackgroundTransparency = 0.72;
+                    BorderSizePixel = 0;
+                    Visible = false;
+                    ZIndex = root.ZIndex + 25;
+                })
+                library:create("UICorner", {
+                    Parent = self.__enabled_blocker;
+                    CornerRadius = dim(0, 5);
+                })
+            end
+            self.__enabled_blocker.Visible = not enabled
+
             if root:GetAttribute("VoidHubEnabledTransparency") == nil then
                 root:SetAttribute("VoidHubEnabledTransparency", root.BackgroundTransparency)
             end
