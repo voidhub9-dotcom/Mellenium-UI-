@@ -480,59 +480,198 @@
         end
 
         local config_holder;
-        function library:update_config_list() 
-            if not config_holder then 
-                return 
-            end
-            
-            local list = {}
-            
-            for idx, file in listfiles(library.directory .. "/configs") do
-                local name = file:gsub(library.directory .. "/configs\\", ""):gsub(".cfg", ""):gsub(library.directory .. "\\configs\\", "")
-                list[#list + 1] = name
-            end
 
-            config_holder.refresh_options(list)
-        end 
-
-        function library:get_config()
-            local Config = {}
-            
-            for _, v in next, flags do
-                if type(v) == "table" and v.key then
-                    Config[_] = {active = v.active, mode = v.mode, key = tostring(v.key)}
-                elseif type(v) == "table" and v["Transparency"] and v["Color"] then
-                    Config[_] = {Transparency = v["Transparency"], Color = v["Color"]:ToHex()}
-                else
-                    Config[_] = v
-                end
-            end 
-            
-            return http_service:JSONEncode(Config)
+        local function trim_config_name(value)
+            return tostring(value or ""):match("^%s*(.-)%s*$")
         end
 
-        function library:load_config(config_json) 
-            local config = http_service:JSONDecode(config_json)
-            
-            for _, v in config do 
-                local function_set = library.config_flags[_]
-                
-                if _ == "config_name_list" then 
-                    continue 
-                end
+        local function sanitize_config_name(value)
+            local name = trim_config_name(value)
 
-                if function_set then 
-                    if type(v) == "table" and v["Transparency"] and v["Color"] then
-                        function_set(hex(v["Color"]), v["Transparency"])
-                    elseif type(v) == "table" and v["active"] then 
-                        function_set(v)
+            if string.lower(string.sub(name, -4)) == ".cfg" then
+                name = string.sub(name, 1, -5)
+            end
+
+            name = name:gsub("[\\/:*?\"<>|]", "_")
+            name = name:gsub("%.+$", "")
+            name = trim_config_name(name)
+
+            if name == "" then
+                return nil
+            end
+
+            return name
+        end
+
+        function library:get_config_path(name)
+            local safe_name = sanitize_config_name(name)
+            if not safe_name then
+                return nil, nil
+            end
+
+            return library.directory .. "/configs/" .. safe_name .. ".cfg", safe_name
+        end
+
+        function library:get_config_list()
+            local configs = {}
+            local seen = {}
+            local ok, files = pcall(listfiles, library.directory .. "/configs")
+
+            if not ok or type(files) ~= "table" then
+                return configs
+            end
+
+            for _, file in files do
+                local normalized = tostring(file):gsub("\\", "/")
+                local name = normalized:match("([^/]+)%.cfg$")
+
+                if name and not seen[name] then
+                    seen[name] = true
+                    configs[#configs + 1] = name
+                end
+            end
+
+            table.sort(configs, function(a, b)
+                return string.lower(a) < string.lower(b)
+            end)
+
+            return configs
+        end
+
+        function library:update_config_list(preferred)
+            local list = library:get_config_list()
+
+            if config_holder then
+                config_holder.refresh_options(list, sanitize_config_name(preferred))
+            end
+
+            return list
+        end
+
+        function library:get_config()
+            local config = {}
+
+            for flag, value in next, flags do
+                if flag ~= "config_name_list" and flag ~= "config_name_text" then
+                    if type(value) == "table" and value.key ~= nil then
+                        config[flag] = {
+                            active = value.active == true,
+                            mode = value.mode,
+                            key = tostring(value.key)
+                        }
+                    elseif type(value) == "table" and value.Transparency ~= nil and typeof(value.Color) == "Color3" then
+                        config[flag] = {
+                            Transparency = value.Transparency,
+                            Color = value.Color:ToHex()
+                        }
                     else
-                        function_set(v)
+                        config[flag] = value
                     end
-                end 
-            end 
-        end 
-        
+                end
+            end
+
+            return http_service:JSONEncode(config)
+        end
+
+        function library:load_config(config_json)
+            local decoded, config = pcall(function()
+                return http_service:JSONDecode(config_json)
+            end)
+
+            if not decoded or type(config) ~= "table" then
+                return false, "Invalid config data"
+            end
+
+            for flag, value in config do
+                if flag ~= "config_name_list" and flag ~= "config_name_text" then
+                    local setter = library.config_flags[flag]
+
+                    if setter then
+                        local applied, apply_error = pcall(function()
+                            if type(value) == "table" and value.Transparency ~= nil and value.Color then
+                                setter(hex(value.Color), value.Transparency)
+                            else
+                                setter(value)
+                            end
+                        end)
+
+                        if not applied then
+                            return false, "Failed to apply " .. tostring(flag) .. ": " .. tostring(apply_error)
+                        end
+                    end
+                end
+            end
+
+            return true
+        end
+
+        function library:save_config(name)
+            local path, safe_name = library:get_config_path(name)
+            if not path then
+                return false, "Enter a config name"
+            end
+
+            local saved, save_error = pcall(function()
+                writefile(path, library:get_config())
+            end)
+
+            if not saved then
+                return false, tostring(save_error)
+            end
+
+            flags.config_name_list = safe_name
+            library:update_config_list(safe_name)
+            return true, safe_name
+        end
+
+        function library:load_named_config(name)
+            local path, safe_name = library:get_config_path(name)
+            if not path then
+                return false, "Select a config"
+            end
+
+            if isfile and not isfile(path) then
+                return false, "Config does not exist"
+            end
+
+            local read_ok, contents = pcall(readfile, path)
+            if not read_ok then
+                return false, tostring(contents)
+            end
+
+            local loaded, load_error = library:load_config(contents)
+            if not loaded then
+                return false, load_error
+            end
+
+            flags.config_name_list = safe_name
+            library:update_config_list(safe_name)
+            return true, safe_name
+        end
+
+        function library:delete_config(name)
+            local path, safe_name = library:get_config_path(name)
+            if not path then
+                return false, "Select a config"
+            end
+
+            if isfile and not isfile(path) then
+                return false, "Config does not exist"
+            end
+
+            local deleted, delete_error = pcall(delfile, path)
+            if not deleted then
+                return false, tostring(delete_error)
+            end
+
+            if flags.config_name_list == safe_name then
+                flags.config_name_list = nil
+            end
+
+            library:update_config_list()
+            return true, safe_name
+        end
+
         function library:round(number, float) 
             local multiplier = 1 / (float or 1)
 
@@ -4813,12 +4952,41 @@
                 });
             end 
 
-            function cfg.refresh_options(options_to_refresh) -- ignore goofy parameter
-                for _,option in cfg.data_store do 
-                    option:Destroy()
+            function cfg.set(value)
+                local selected
+
+                for _, entry in cfg.data_store do
+                    local active = entry.value == value
+                    entry.label.TextColor3 = active and rgb(245, 245, 245) or rgb(72, 72, 73)
+
+                    if active then
+                        selected = entry
+                    end
                 end
 
-                for _, option_data in options_to_refresh do -- haha u skids no next >_<
+                if not selected then
+                    flags[cfg.flag] = nil
+                    cfg.current_element = nil
+                    return nil
+                end
+
+                flags[cfg.flag] = selected.value
+                cfg.current_element = selected.label
+                cfg.callback(selected.value)
+                return selected.value
+            end
+
+            function cfg.refresh_options(options_to_refresh, preferred)
+                for _, entry in cfg.data_store do
+                    if entry.button and entry.button.Parent then
+                        entry.button:Destroy()
+                    end
+                end
+
+                cfg.data_store = {}
+                cfg.current_element = nil
+
+                for _, option_data in options_to_refresh or {} do
                     local button = library:create( "TextButton" , {
                         FontFace = fonts.small;
                         TextColor3 = rgb(0, 0, 0);
@@ -4833,56 +5001,61 @@
                         BorderSizePixel = 0;
                         TextSize = 14;
                         BackgroundColor3 = rgb(33, 33, 35)
-                    }); cfg.data_store[#cfg.data_store + 1] = button;
+                    });
 
                     local name = library:create( "TextLabel" , {
                         FontFace = fonts.font;
                         TextColor3 = rgb(72, 72, 73);
                         BorderColor3 = rgb(0, 0, 0);
-                        Text = option_data;
+                        Text = tostring(option_data);
                         Parent = button;
                         Name = "\0";
                         BackgroundTransparency = 1;
                         Size = dim2(1, 0, 1, 0);
                         BorderSizePixel = 0;
-                        AutomaticSize = Enum.AutomaticSize.XY;
                         TextSize = 14;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
-                    
+
                     library:create( "UICorner" , {
                         Parent = button;
                         CornerRadius = dim(0, 3)
-                    });     
+                    });
 
-                    button.Activated:Connect(function()
-                        local current = cfg.current_element 
-                        if current and current ~= name then 
-                            library:tween(current, {TextColor3 = rgb(72, 72, 72)})
+                    local entry = {
+                        button = button;
+                        label = name;
+                        value = option_data;
+                    }
+                    cfg.data_store[#cfg.data_store + 1] = entry
+
+                    library:connection(button.Activated, function()
+                        cfg.set(option_data)
+                    end)
+
+                    library:connection(name.MouseEnter, function()
+                        if cfg.current_element ~= name then
+                            library:tween(name, {TextColor3 = rgb(140, 140, 140)})
                         end
-
-                        flags[cfg.flag] = option_data
-                        cfg.callback(option_data)
-                        library:tween(name, {TextColor3 = rgb(245, 245, 245)})
-                        cfg.current_element = name
                     end)
 
-                    name.MouseEnter:Connect(function()
-                        if cfg.current_element == name then 
-                            return 
-                        end 
-
-                        library:tween(name, {TextColor3 = rgb(140, 140, 140)})
-                    end)
-
-                    name.MouseLeave:Connect(function()
-                        if cfg.current_element == name then 
-                            return 
-                        end 
-
-                        library:tween(name, {TextColor3 = rgb(72, 72, 72)})
+                    library:connection(name.MouseLeave, function()
+                        if cfg.current_element ~= name then
+                            library:tween(name, {TextColor3 = rgb(72, 72, 73)})
+                        end
                     end)
                 end
+
+                local target = preferred or flags[cfg.flag]
+                local selected = target and cfg.set(target)
+
+                if not selected and cfg.data_store[1] then
+                    selected = cfg.set(cfg.data_store[1].value)
+                elseif not cfg.data_store[1] then
+                    flags[cfg.flag] = nil
+                end
+
+                return selected
             end
 
             cfg.refresh_options(cfg.options)
@@ -4890,22 +5063,103 @@
             return setmetatable(cfg, library)
         end 
 
-        function library:init_config(window) 
+        function library:init_config(window)
             window:seperator({name = "Settings"})
             local main = window:tab({name = "Configs", tabs = {"Main"}})
-            
-            local column = main:column({})
-            local section = column:section({name = "Configs", size = 1, default = true, icon = "rbxassetid://139628202576511"})
-            config_holder = section:list({options = {"Report", "This", "Error", "To", "Finobe"}, callback = function(option) end, flag = "config_name_list"}); library:update_config_list()
-            
-            local column = main:column({})
-            local section = column:section({name = "Settings", side = "right", size = 1, default = true, icon = "rbxassetid://129380150574313"})
-            section:textbox({name = "Config name:", flag = "config_name_text"})
-            section:button({name = "Save", callback = function() writefile(library.directory .. "/configs/" .. flags["config_name_text"] or flags["config_name_list"] .. ".cfg", library:get_config()) library:update_config_list() notifications:create_notification({name = "Configs", info = "Saved config to:\n" .. flags["config_name_list"] or flags["config_name_text"]}) end}) 
-            section:button({name = "Load", callback = function() library:load_config(readfile(library.directory .. "/configs/" .. flags["config_name_list"] .. ".cfg"))  library:update_config_list() notifications:create_notification({name = "Configs", info = "Loaded config:\n" .. flags["config_name_list"]}) end})
-            section:button({name = "Delete", callback = function() delfile(library.directory .. "/configs/" .. flags["config_name_list"] .. ".cfg")  library:update_config_list() notifications:create_notification({name = "Configs", info = "Deleted config:\n" .. flags["config_name_list"]}) end})
-            section:colorpicker({name = "Menu Accent", callback = function(color, alpha) library:update_theme("accent", color) end, color = themes.preset.accent})
-            section:keybind({name = "Menu Bind", callback = function(bool) window.toggle_menu(bool) end, default = true})
+
+            local list_column = main:column({})
+            local list_section = list_column:section({
+                name = "Configs",
+                size = 1,
+                default = true,
+                icon = "rbxassetid://139628202576511"
+            })
+
+            local settings_column = main:column({})
+            local settings_section = settings_column:section({
+                name = "Settings",
+                side = "right",
+                size = 1,
+                default = true,
+                icon = "rbxassetid://129380150574313"
+            })
+
+            local name_box
+            config_holder = list_section:list({
+                options = {},
+                flag = "config_name_list",
+                callback = function(option)
+                    if name_box and name_box.set then
+                        name_box.set(option)
+                    end
+                end
+            })
+
+            name_box = settings_section:textbox({
+                name = "Config name:",
+                placeholder = "Enter config name",
+                flag = "config_name_text"
+            })
+
+            local function selected_name()
+                local typed = trim_config_name(flags.config_name_text)
+                if typed ~= "" then
+                    return typed
+                end
+                return flags.config_name_list
+            end
+
+            local function notify(info)
+                notifications:create_notification({
+                    name = "Configs",
+                    info = info
+                })
+            end
+
+            settings_section:button({
+                name = "Save",
+                callback = function()
+                    local ok, result = library:save_config(selected_name())
+                    notify(ok and ("Saved config:\n" .. result) or ("Save failed:\n" .. tostring(result)))
+                end
+            })
+
+            settings_section:button({
+                name = "Load",
+                callback = function()
+                    local ok, result = library:load_named_config(selected_name())
+                    notify(ok and ("Loaded config:\n" .. result) or ("Load failed:\n" .. tostring(result)))
+                end
+            })
+
+            settings_section:button({
+                name = "Delete",
+                callback = function()
+                    local ok, result = library:delete_config(selected_name())
+                    if ok and name_box and name_box.set then
+                        name_box.set("")
+                    end
+                    notify(ok and ("Deleted config:\n" .. result) or ("Delete failed:\n" .. tostring(result)))
+                end
+            })
+
+            settings_section:colorpicker({
+                name = "Menu Accent",
+                callback = function(color)
+                    library:update_theme("accent", color)
+                end,
+                color = themes.preset.accent
+            })
+
+            settings_section:keybind({
+                name = "Menu Bind",
+                callback = function(bool)
+                    window.toggle_menu(bool)
+                end,
+                default = true
+            })
+
+            library:update_config_list()
         end
     --
 
