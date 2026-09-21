@@ -1965,8 +1965,20 @@
 
                 if cfg.auto_size then
                     function cfg:update_size()
-                        local content_height = items[ "elements_layout" ].AbsoluteContentSize.Y
-                        local desired_height = max(cfg.min_height, content_height + 20)
+                        local ui_scale = 1
+                        local ancestor = items[ "outline" ]
+
+                        while ancestor do
+                            local scale_object = ancestor:FindFirstChildOfClass("UIScale")
+                            if scale_object then
+                                ui_scale = max(0.01, scale_object.Scale)
+                                break
+                            end
+                            ancestor = ancestor.Parent
+                        end
+
+                        local content_height = items[ "elements_layout" ].AbsoluteContentSize.Y / ui_scale
+                        local desired_height = max(cfg.min_height, content_height + 25)
                         local visible_height = min(desired_height, cfg.max_height)
 
                         cfg.expanded_height = visible_height
