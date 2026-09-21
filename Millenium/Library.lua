@@ -1308,7 +1308,11 @@
                 library:resizify(items[ "main" ])
             end 
 
-            function cfg.toggle_menu(bool) 
+            function cfg.toggle_menu(bool)
+                if not library or not library[ "items" ] then
+                    return false
+                end
+
                 -- WIP 
                 -- if cfg.tween then 
                 --     cfg.tween:Cancel()
@@ -1326,6 +1330,9 @@
             end
 
             function cfg:update_mobile_toggle()
+                if not library or not library[ "items" ] then
+                    return false
+                end
                 local toggle_gui = library[ "mobile_toggle" ]
                 if not toggle_gui then
                     return false
@@ -1435,13 +1442,14 @@
                     button_start = nil
                     dragged = false
 
-                    if should_toggle and library[ "mobile_toggle" ] and library[ "mobile_toggle" ].Enabled then
+                    if should_toggle and library and library[ "mobile_toggle" ]
+                        and library[ "mobile_toggle" ].Enabled and library[ "items" ] then
                         cfg.toggle_menu(not library[ "items" ].Enabled)
                     end
                 end
 
                 library:connection(mobile_button.InputBegan, function(input)
-                    if not is_press(input) then
+                    if not library or not library[ "items" ] or not is_press(input) then
                         return
                     end
 
@@ -1506,7 +1514,9 @@
 
                 library:connection(ws:GetPropertyChangedSignal("CurrentCamera"), function()
                     task.defer(function()
-                        cfg:update_mobile_toggle()
+                        if library and library[ "items" ] then
+                            cfg:update_mobile_toggle()
+                        end
                     end)
                 end)
             end
