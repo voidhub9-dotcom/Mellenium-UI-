@@ -5264,6 +5264,8 @@
             local steps = tonumber(options.Steps or options.steps)
             local closable = options.Closable == true or options.closable == true
             local callback = options.Callback or options.callback
+            local sound_id = options.SoundId or options.soundId
+            local sound_volume = tonumber(options.Volume or options.volume) or 3
             local accent = options.IconColor or options.iconColor or options.color or themes.preset.accent
             local title_color = options.TitleColor or options.titleColor
             local description_color = options.DescriptionColor or options.descriptionColor
@@ -5456,6 +5458,17 @@
                     ZIndex = 112;
                 })
                 items.progress:SetAttribute("VoidHubShownTransparency", 0)
+            end
+
+            if sound_id then
+                local sound = Instance.new("Sound")
+                sound.SoundId = type(sound_id) == "number"
+                    and ("rbxassetid://" .. tostring(sound_id))
+                    or tostring(sound_id)
+                sound.Volume = sound_volume
+                sound.Parent = sound_service
+                sound:Play()
+                debris:AddItem(sound, max(3, sound.TimeLength + 1))
             end
 
             local api = {
@@ -6788,10 +6801,13 @@ do
     end
 
     function notifications:create_notification(options)
+        if type(options) == "string" then
+            options = {Title = "VoidHub"; Description = options}
+        end
         options = options or {}
         extension.notification_history[#extension.notification_history + 1] = {
-            name = options.name or "Notification";
-            info = options.info or "";
+            name = options.Title or options.title or options.name or "Notification";
+            info = options.Description or options.description or options.info or options.message or "";
             time = os.time();
             kind = options.type or options.kind or "info";
         }
@@ -6801,9 +6817,15 @@ do
         return base_notification(self, options)
     end
 
-    function library:Notify(options)
+    function library:Notify(options, duration, sound_id, volume)
         if type(options) == "string" then
-            options = {name = "VoidHub"; info = options}
+            options = {
+                Title = "VoidHub";
+                Description = options;
+                Time = duration;
+                SoundId = sound_id;
+                Volume = volume;
+            }
         end
         return notifications:create_notification(options or {})
     end
