@@ -557,7 +557,7 @@
                         config[flag] = {
                             active = value.active == true,
                             mode = value.mode,
-                            key = tostring(value.key)
+                            key = value.key and tostring(value.key) or "NONE"
                         }
                     elseif type(value) == "table" and value.Transparency ~= nil and typeof(value.Color) == "Color3" then
                         config[flag] = {
@@ -4646,9 +4646,7 @@
                     cfg.key = input.key or "NONE"
                     cfg.mode = input.mode or "Toggle"
 
-                    if input.active then
-                        cfg.active = input.active
-                    end
+                    cfg.active = input.active == true
 
                     cfg.set_mode(cfg.mode) 
                 end 
