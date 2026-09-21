@@ -18,7 +18,7 @@ local window = library:window({
     suffix = "UI",
     gameInfo = "VoidHub UI",
     autoDPI = true,
-    customSize = {width = 760, height = 600}
+    customSize = {width = 760, height = 500}
 })
 ```
 
@@ -41,9 +41,9 @@ local window = library:window({
 
     autoDPI = true,
     autoMinimize = {width = 900, height = 600},
-    customSize = {width = 760, height = 600},
+    customSize = {width = 760, height = 500},
     dpiScale = 1,
-    minDPI = 0.55,
+    minDPI = 0.65,
     maxDPI = 1.15,
     dpiReference = {width = 1920, height = 1080}
 })
@@ -343,7 +343,7 @@ local window = library:window({
     gameInfo = "VoidHub UI",
     autoDPI = true,
     autoMinimize = {width = 900, height = 600},
-    customSize = {width = 760, height = 600},
+    customSize = {width = 760, height = 500},
     mobileToggle = {
         enabled = true,
         icon = "rbxassetid://6034767608",
