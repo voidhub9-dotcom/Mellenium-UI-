@@ -214,7 +214,40 @@
             return tween
         end
 
-        function library:resizify(frame) 
+        function library:clamp_to_viewport(frame, padding)
+            if not frame or not frame.Parent then return false end
+            padding = max(0, tonumber(padding) or 0)
+
+            local current_camera = ws.CurrentCamera or camera
+            local viewport = current_camera and current_camera.ViewportSize
+            if not viewport then return false end
+
+            local parent = frame.Parent
+            local parent_position = vec2(0, 0)
+            local parent_size = viewport
+            if parent and parent:IsA("GuiObject") then
+                parent_position = parent.AbsolutePosition
+                parent_size = parent.AbsoluteSize
+            end
+
+            local size = frame.AbsoluteSize
+            local position = frame.AbsolutePosition
+            local min_x = parent_position.X + padding
+            local min_y = parent_position.Y + padding
+            local max_x = max(min_x, parent_position.X + parent_size.X - size.X - padding)
+            local max_y = max(min_y, parent_position.Y + parent_size.Y - size.Y - padding)
+            local x = clamp(position.X, min_x, max_x)
+            local y = clamp(position.Y, min_y, max_y)
+            local anchor = frame.AnchorPoint
+
+            frame.Position = dim_offset(
+                x - parent_position.X + size.X * anchor.X,
+                y - parent_position.Y + size.Y * anchor.Y
+            )
+            return x ~= position.X or y ~= position.Y
+        end
+
+        function library:resizify(frame)
             local Frame = Instance.new("TextButton")
             Frame.Position = dim2(1, -20, 1, -20)
             Frame.BorderColor3 = rgb(0, 0, 0)
@@ -241,27 +274,24 @@
             end
 
             local function stop_resize(input)
-                if not active_input then
-                    return
-                end
-
+                if not active_input then return end
                 if input and input ~= active_input and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
                     return
                 end
-
                 resizing = false
                 active_input = nil
                 resize_input = nil
+                library:clamp_to_viewport(frame)
             end
 
             library:connection(Frame.InputBegan, function(input)
-                if is_press(input) then
-                    resizing = true
-                    active_input = input
-                    resize_input = nil
-                    start = input.Position
-                    start_size = frame.Size
-                end
+                if not is_press(input) then return end
+                library:clamp_to_viewport(frame)
+                resizing = true
+                active_input = input
+                resize_input = nil
+                start = input.Position
+                start_size = frame.Size
             end)
 
             library:connection(Frame.InputChanged, function(input)
@@ -272,45 +302,36 @@
             end)
 
             library:connection(uis.InputChanged, function(input)
-                if not resizing or not active_input then
-                    return
-                end
+                if not resizing or not active_input then return end
 
                 local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
                     and input.UserInputType == Enum.UserInputType.MouseMovement
                 local is_touch_drag = active_input.UserInputType == Enum.UserInputType.Touch
                     and (input == active_input or input == resize_input)
-
-                if not (is_mouse_drag or is_touch_drag) then
-                    return
-                end
+                if not (is_mouse_drag or is_touch_drag) then return end
 
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
-                if not viewport then
-                    return
-                end
+                if not viewport then return end
 
                 local scale_object = frame:FindFirstChildOfClass("UIScale")
                 local ui_scale = scale_object and scale_object.Scale or 1
                 ui_scale = ui_scale > 0 and ui_scale or 1
 
-                local current_size = dim2(
-                    start_size.X.Scale,
-                    math.clamp(
-                        start_size.X.Offset + (input.Position.X - start.X) / ui_scale,
-                        og_size.X.Offset,
-                        viewport.X / ui_scale
-                    ),
-                    start_size.Y.Scale,
-                    math.clamp(
-                        start_size.Y.Offset + (input.Position.Y - start.Y) / ui_scale,
-                        og_size.Y.Offset,
-                        viewport.Y / ui_scale
-                    )
-                )
+                local available_width = max(1, viewport.X - frame.AbsolutePosition.X)
+                local available_height = max(1, viewport.Y - frame.AbsolutePosition.Y)
+                local max_width = available_width / ui_scale
+                local max_height = available_height / ui_scale
+                local min_width = min(og_size.X.Offset, max_width)
+                local min_height = min(og_size.Y.Offset, max_height)
 
-                frame.Size = current_size
+                frame.Size = dim2(
+                    start_size.X.Scale,
+                    clamp(start_size.X.Offset + (input.Position.X - start.X) / ui_scale, min_width, max_width),
+                    start_size.Y.Scale,
+                    clamp(start_size.Y.Offset + (input.Position.Y - start.Y) / ui_scale, min_height, max_height)
+                )
+                library:clamp_to_viewport(frame)
             end)
 
             library:connection(uis.InputEnded, function(input)
@@ -320,7 +341,16 @@
                     stop_resize(input)
                 end
             end)
-        end 
+
+            local current_camera = ws.CurrentCamera or camera
+            if current_camera then
+                library:connection(current_camera:GetPropertyChangedSignal("ViewportSize"), function()
+                    task.defer(function()
+                        library:clamp_to_viewport(frame)
+                    end)
+                end)
+            end
+        end
 
         function fag(tbl)
             local Size = 0
@@ -361,25 +391,20 @@
             end
 
             local function stop_drag(input)
-                if not active_input then
-                    return
-                end
-
+                if not active_input then return end
                 if input and input ~= active_input and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
                     return
                 end
-
                 dragging = false
                 active_input = nil
                 drag_input = nil
                 moved = false
+                library:clamp_to_viewport(frame)
             end
 
             library:connection(frame.InputBegan, function(input)
-                if not is_press(input) then
-                    return
-                end
-
+                if not is_press(input) then return end
+                library:clamp_to_viewport(frame)
                 dragging = true
                 active_input = input
                 drag_input = nil
@@ -396,34 +421,25 @@
             end)
 
             library:connection(uis.InputChanged, function(input)
-                if not dragging or not active_input then
-                    return
-                end
+                if not dragging or not active_input then return end
 
                 local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
                     and input.UserInputType == Enum.UserInputType.MouseMovement
                 local is_touch_drag = active_input.UserInputType == Enum.UserInputType.Touch
                     and (input == active_input or input == drag_input)
-
-                if not (is_mouse_drag or is_touch_drag) then
-                    return
-                end
+                if not (is_mouse_drag or is_touch_drag) then return end
 
                 local delta = vec2(input.Position.X - drag_start.X, input.Position.Y - drag_start.Y)
-                if abs(delta.X) < 3 and abs(delta.Y) < 3 then
-                    return
-                end
-
+                if abs(delta.X) < 3 and abs(delta.Y) < 3 then return end
                 moved = true
+
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
-                if not viewport then
-                    return
-                end
+                if not viewport then return end
 
+                local parent = frame.Parent
                 local parent_position = vec2(0, 0)
                 local parent_size = viewport
-                local parent = frame.Parent
                 if parent and parent:IsA("GuiObject") then
                     parent_position = parent.AbsolutePosition
                     parent_size = parent.AbsoluteSize
@@ -431,11 +447,14 @@
 
                 local frame_size = frame.AbsoluteSize
                 local target = frame_start + delta
-                local x = clamp(target.X - parent_position.X, 0, max(0, parent_size.X - frame_size.X))
-                local y = clamp(target.Y - parent_position.Y, 0, max(0, parent_size.Y - frame_size.Y))
-                local parent_inset_y = parent and parent:IsA("ScreenGui") and get_gui_offset() or 0
+                local x = clamp(target.X, parent_position.X, max(parent_position.X, parent_position.X + parent_size.X - frame_size.X))
+                local y = clamp(target.Y, parent_position.Y, max(parent_position.Y, parent_position.Y + parent_size.Y - frame_size.Y))
+                local anchor = frame.AnchorPoint
 
-                frame.Position = dim_offset(x, y + parent_inset_y)
+                frame.Position = dim_offset(
+                    x - parent_position.X + frame_size.X * anchor.X,
+                    y - parent_position.Y + frame_size.Y * anchor.Y
+                )
                 library:close_element()
             end)
 
@@ -446,7 +465,16 @@
                     stop_drag(input)
                 end
             end)
-        end 
+
+            local current_camera = ws.CurrentCamera or camera
+            if current_camera then
+                library:connection(current_camera:GetPropertyChangedSignal("ViewportSize"), function()
+                    task.defer(function()
+                        library:clamp_to_viewport(frame)
+                    end)
+                end)
+            end
+        end
 
         function library:convert(str)
             local values = {}
@@ -1360,7 +1388,7 @@
                     local current_position = mobile_button.Position
                     local x = clamp(absolute_position.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(absolute_position.Y, 0, max(0, viewport.Y - size.Y))
-                    local position_y = y + get_gui_offset()
+                    local position_y = y
                     if abs(x - current_position.X.Offset) > 1 or abs(position_y - current_position.Y.Offset) > 1 then
                         mobile_button.Position = dim_offset(x, position_y)
                     end
@@ -1501,7 +1529,7 @@
                     local size = mobile_button.AbsoluteSize
                     local x = clamp(button_start.X + delta.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(button_start.Y + delta.Y, 0, max(0, viewport.Y - size.Y))
-                    mobile_button.Position = dim_offset(x, y + get_gui_offset())
+                    mobile_button.Position = dim_offset(x, y)
                 end)
 
                 library:connection(uis.InputEnded, function(input)
