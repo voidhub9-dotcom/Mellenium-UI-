@@ -5192,160 +5192,299 @@
     --
 
     -- Notification Library
-        function notifications:refresh_notifs() 
-            local offset = 50
+        function notifications:refresh_notifs()
+            local active = {}
+            for _, notification in notifications.notifs do
+                if notification and notification.Parent then
+                    active[#active + 1] = notification
+                end
+            end
+            notifications.notifs = active
 
-            for i, v in notifications.notifs do
-                local Position = vec2(20, offset)
-                library:tween(v, {Position = dim_offset(Position.X, Position.Y)}, Enum.EasingStyle.Quad, 0.4)
-                offset += (v.AbsoluteSize.Y + 10)
+            local offset = 18
+            for _, notification in active do
+                local height = notification:GetAttribute("VoidHubNotificationHeight")
+                    or notification.AbsoluteSize.Y
+                    or 64
+                library:tween(
+                    notification,
+                    {Position = dim2(1, -14, 0, offset)},
+                    Enum.EasingStyle.Quint,
+                    0.28
+                )
+                offset += height + 9
             end
 
             return offset
         end
-        
-        function notifications:fade(path, is_fading)
-            local fading = is_fading and 1 or 0 
-            
-            library:tween(path, {BackgroundTransparency = fading}, Enum.EasingStyle.Quad, 1)
 
-            for _, instance in path:GetDescendants() do 
-                if not instance:IsA("GuiObject") then 
-                    if instance:IsA("UIStroke") then
-                        library:tween(instance, {Transparency = fading}, Enum.EasingStyle.Quad, 1)
-                    end
-        
-                    continue
-                end 
-        
-                if instance:IsA("TextLabel") then
-                    library:tween(instance, {TextTransparency = fading})
+        function notifications:fade(path, is_fading)
+            if not path or not path.Parent then return end
+            local target = is_fading and 1 or 0
+
+            library:tween(path, {
+                BackgroundTransparency = is_fading and 1 or 0.04
+            }, Enum.EasingStyle.Quad, 0.2)
+
+            for _, instance in path:GetDescendants() do
+                if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+                    library:tween(instance, {TextTransparency = target}, Enum.EasingStyle.Quad, 0.18)
                 elseif instance:IsA("Frame") then
-                    library:tween(instance, {BackgroundTransparency = instance.Transparency and 0.6 and is_fading and 1 or 0.6}, Enum.EasingStyle.Quad, 1)
+                    local shown = instance:GetAttribute("VoidHubShownTransparency")
+                    if shown ~= nil then
+                        library:tween(instance, {
+                            BackgroundTransparency = is_fading and 1 or shown
+                        }, Enum.EasingStyle.Quad, 0.18)
+                    end
+                elseif instance:IsA("UIStroke") then
+                    library:tween(instance, {
+                        Transparency = is_fading and 1 or 0.28
+                    }, Enum.EasingStyle.Quad, 0.18)
                 end
             end
-        end 
-        
+        end
+
         function notifications:create_notification(options)
-            local cfg = {
-                name = options.name or "This is a title!";
-                info = options.info or "This is extra info!";
-                lifetime = options.lifetime or 3;
-                items = {};
-                outline;
+            options = options or {}
+            local notification_library = library
+            local kind = string.lower(tostring(options.type or options.kind or "info"))
+            local colors = {
+                info = themes.preset.accent;
+                success = rgb(74, 213, 142);
+                warning = rgb(245, 184, 73);
+                error = rgb(239, 91, 112);
+            }
+            local icons = {
+                info = "i";
+                success = "✓";
+                warning = "!";
+                error = "×";
+            }
+            local accent = options.color or colors[kind] or colors.info
+            local title_text = tostring(options.name or options.title or "VoidHub")
+            local info_text = tostring(options.info or options.message or "")
+            local lifetime = max(1, tonumber(options.lifetime or options.duration) or 4)
+            local has_info = info_text ~= ""
+            local height = has_info and 72 or 52
+            local current_camera = ws.CurrentCamera or camera
+            local viewport = current_camera and current_camera.ViewportSize or vec2(800, 600)
+            local width = clamp(tonumber(options.width) or 292, 220, max(220, viewport.X - 28))
+
+            local items = {}
+            items.notification = notification_library:create("Frame", {
+                Parent = notification_library.items;
+                Name = "VoidHubNotification";
+                AnchorPoint = vec2(1, 0);
+                Position = dim2(1, width + 24, 0, 18);
+                Size = dim2(0, width, 0, height);
+                BackgroundColor3 = rgb(11, 11, 14);
+                BackgroundTransparency = 0.04;
+                BorderSizePixel = 0;
+                ZIndex = 110;
+            })
+            items.notification:SetAttribute("VoidHubNotificationHeight", height)
+
+            notification_library:create("UICorner", {
+                Parent = items.notification;
+                CornerRadius = dim(0, 9);
+            })
+
+            items.stroke = notification_library:create("UIStroke", {
+                Parent = items.notification;
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                Color = rgb(54, 54, 62);
+                Transparency = 0.28;
+                Thickness = 1;
+            })
+
+            items.accent = notification_library:create("Frame", {
+                Parent = items.notification;
+                Position = dim2(0, 0, 0, 8);
+                Size = dim2(0, 3, 1, -16);
+                BackgroundColor3 = accent;
+                BackgroundTransparency = 0;
+                BorderSizePixel = 0;
+                ZIndex = 111;
+            })
+            items.accent:SetAttribute("VoidHubShownTransparency", 0)
+            notification_library:create("UICorner", {
+                Parent = items.accent;
+                CornerRadius = dim(0, 999);
+            })
+
+            items.icon = notification_library:create("TextLabel", {
+                Parent = items.notification;
+                Position = dim2(0, 13, 0, has_info and 13 or 12);
+                Size = dim2(0, 27, 0, 27);
+                BackgroundColor3 = accent;
+                BackgroundTransparency = 0.82;
+                BorderSizePixel = 0;
+                Text = icons[kind] or icons.info;
+                TextColor3 = accent;
+                FontFace = fonts.font;
+                TextSize = 15;
+                ZIndex = 111;
+            })
+            items.icon:SetAttribute("VoidHubShownTransparency", 0.82)
+            notification_library:create("UICorner", {
+                Parent = items.icon;
+                CornerRadius = dim(1, 0);
+            })
+
+            items.title = notification_library:create("TextLabel", {
+                Parent = items.notification;
+                Position = dim2(0, 49, 0, has_info and 10 or 15);
+                Size = dim2(1, -83, 0, 20);
+                BackgroundTransparency = 1;
+                BorderSizePixel = 0;
+                Text = title_text;
+                TextColor3 = rgb(247, 247, 249);
+                TextXAlignment = Enum.TextXAlignment.Left;
+                TextYAlignment = Enum.TextYAlignment.Center;
+                TextTruncate = Enum.TextTruncate.AtEnd;
+                FontFace = fonts.font;
+                TextSize = 14;
+                ZIndex = 111;
+            })
+
+            if has_info then
+                items.info = notification_library:create("TextLabel", {
+                    Parent = items.notification;
+                    Position = dim2(0, 49, 0, 32);
+                    Size = dim2(1, -63, 0, 27);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    Text = info_text;
+                    TextColor3 = rgb(157, 157, 166);
+                    TextWrapped = true;
+                    TextXAlignment = Enum.TextXAlignment.Left;
+                    TextYAlignment = Enum.TextYAlignment.Top;
+                    FontFace = fonts.small;
+                    TextSize = 12;
+                    ZIndex = 111;
+                })
+            end
+
+            items.close = notification_library:create("TextButton", {
+                Parent = items.notification;
+                AnchorPoint = vec2(1, 0);
+                Position = dim2(1, -7, 0, 7);
+                Size = dim2(0, 24, 0, 24);
+                BackgroundColor3 = rgb(28, 28, 33);
+                BackgroundTransparency = 0.15;
+                BorderSizePixel = 0;
+                AutoButtonColor = false;
+                Text = "×";
+                TextColor3 = rgb(150, 150, 160);
+                FontFace = fonts.small;
+                TextSize = 17;
+                ZIndex = 112;
+            })
+            items.close:SetAttribute("VoidHubShownTransparency", 0.15)
+            notification_library:create("UICorner", {
+                Parent = items.close;
+                CornerRadius = dim(0, 6);
+            })
+
+            items.progress_track = notification_library:create("Frame", {
+                Parent = items.notification;
+                AnchorPoint = vec2(0, 1);
+                Position = dim2(0, 11, 1, -5);
+                Size = dim2(1, -22, 0, 2);
+                BackgroundColor3 = rgb(32, 32, 38);
+                BackgroundTransparency = 0.2;
+                BorderSizePixel = 0;
+                ZIndex = 111;
+            })
+            items.progress_track:SetAttribute("VoidHubShownTransparency", 0.2)
+            notification_library:create("UICorner", {
+                Parent = items.progress_track;
+                CornerRadius = dim(0, 999);
+            })
+
+            items.progress = notification_library:create("Frame", {
+                Parent = items.progress_track;
+                Size = dim2(1, 0, 1, 0);
+                BackgroundColor3 = accent;
+                BackgroundTransparency = 0;
+                BorderSizePixel = 0;
+                ZIndex = 112;
+            })
+            items.progress:SetAttribute("VoidHubShownTransparency", 0)
+            notification_library:create("UICorner", {
+                Parent = items.progress;
+                CornerRadius = dim(0, 999);
+            })
+
+            local api = {
+                items = items;
+                kind = kind;
+                closed = false;
             }
 
-            local items = cfg.items; do 
-                items[ "notification" ] = library:create( "Frame" , {
-                    Parent = library[ "items" ];
-                    Size = dim2(0, 210, 0, 53);
-                    Name = "\0";
-                    BorderColor3 = rgb(0, 0, 0);
-                    BorderSizePixel = 0;
-                    BackgroundTransparency = 1;
-                    AnchorPoint = vec2(1, 0);
-                    AutomaticSize = Enum.AutomaticSize.Y;
-                    BackgroundColor3 = rgb(14, 14, 16)
-                });
-                
-                library:create( "UIStroke" , {
-                    Color = rgb(23, 23, 29);
-                    Parent = items[ "notification" ];
-                    Transparency = 1;
-                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-                });
-                
-                items[ "title" ] = library:create( "TextLabel" , {
-                    FontFace = fonts.font;
-                    TextColor3 = rgb(255, 255, 255);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Text = cfg.name;
-                    Parent = items[ "notification" ];
-                    Name = "\0";
-                    BackgroundTransparency = 1;
-                    Position = dim2(0, 7, 0, 6);
-                    BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 14;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                });
-                
-                library:create( "UICorner" , {
-                    Parent = items[ "notification" ];
-                    CornerRadius = dim(0, 3)
-                });
-                
-                items[ "info" ] = library:create( "TextLabel" , {
-                    FontFace = fonts.font;
-                    TextColor3 = rgb(145, 145, 145);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Text = cfg.info;
-                    Parent = items[ "notification" ];
-                    Name = "\0";
-                    Position = dim2(0, 9, 0, 22);
-                    BorderSizePixel = 0;
-                    BackgroundTransparency = 1;
-                    TextXAlignment = Enum.TextXAlignment.Left;
-                    TextWrapped = true;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 14;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                });
-                
-                library:create( "UIPadding" , {
-                    PaddingBottom = dim(0, 17);
-                    PaddingRight = dim(0, 8);
-                    Parent = items[ "info" ]
-                });
-                
-                items[ "bar" ] = library:create( "Frame" , {
-                    AnchorPoint = vec2(0, 1);
-                    Parent = items[ "notification" ];
-                    Name = "\0";
-                    Position = dim2(0, 8, 1, -6);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(0, 0, 0, 5);
-                    BackgroundTransparency = 1;
-                    BorderSizePixel = 0;
-                    BackgroundColor3 = themes.preset.accent
-                });
-                
-                library:create( "UICorner" , {
-                    Parent = items[ "bar" ];
-                    CornerRadius = dim(0, 999)
-                });
-                
-                library:create( "UIPadding" , {
-                    PaddingRight = dim(0, 8);
-                    Parent = items[ "notification" ]
-                });
+            function api:Close()
+                if api.closed then return false end
+                api.closed = true
+
+                local index = table.find(notifications.notifs, items.notification)
+                if index then
+                    table.remove(notifications.notifs, index)
+                end
+
+                if items.notification and items.notification.Parent then
+                    notifications:fade(items.notification, true)
+                    notification_library:tween(
+                        items.notification,
+                        {Position = dim2(1, width + 24, 0, items.notification.Position.Y.Offset)},
+                        Enum.EasingStyle.Quint,
+                        0.24
+                    )
+                    task.delay(0.26, function()
+                        if items.notification and items.notification.Parent then
+                            items.notification:Destroy()
+                        end
+                    end)
+                end
+
+                notifications:refresh_notifs()
+                return true
             end
-            
-            local index = #notifications.notifs + 1
-            notifications.notifs[index] = items[ "notification" ]
 
-            notifications:fade(items[ "notification" ], false)
-            
-            local offset = notifications:refresh_notifs()
-
-            items[ "notification" ].Position = dim_offset(20, offset)
-
-            library:tween(items[ "notification" ], {AnchorPoint = vec2(0, 0)}, Enum.EasingStyle.Quad, 1)
-            library:tween(items[ "bar" ], {Size = dim2(1, -8, 0, 5)}, Enum.EasingStyle.Quad, cfg.lifetime)
-
-            task.spawn(function()
-                task.wait(cfg.lifetime)
-                
-                notifications.notifs[index] = nil
-                
-                notifications:fade(items[ "notification" ], true)
-                
-                library:tween(items[ "notification" ], {AnchorPoint = vec2(1, 0)}, Enum.EasingStyle.Quad, 1)
-
-                task.wait(1)
-        
-                items[ "notification" ]:Destroy() 
+            notification_library:connection(items.close.Activated, function()
+                api:Close()
             end)
+
+            notifications.notifs[#notifications.notifs + 1] = items.notification
+            while #notifications.notifs > 5 do
+                local oldest = table.remove(notifications.notifs, 1)
+                if oldest and oldest.Parent then
+                    oldest:Destroy()
+                end
+            end
+
+            local target_offset = notifications:refresh_notifs()
+            items.notification.Position = dim2(1, width + 24, 0, target_offset - height - 9)
+            notifications:fade(items.notification, false)
+            notification_library:tween(
+                items.notification,
+                {Position = dim2(1, -14, 0, target_offset - height - 9)},
+                Enum.EasingStyle.Quint,
+                0.32
+            )
+            notification_library:tween(
+                items.progress,
+                {Size = dim2(0, 0, 1, 0)},
+                Enum.EasingStyle.Linear,
+                lifetime
+            )
+
+            task.delay(lifetime, function()
+                if not api.closed and items.notification and items.notification.Parent then
+                    api:Close()
+                end
+            end)
+
+            return api
         end
     --
 -- 
