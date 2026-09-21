@@ -87,7 +87,9 @@ Group boxes:
 - Size themselves from their controls.
 - Scroll internally when their content exceeds \`maxHeight\`.
 - Collapse from the header without leaving blank space.
-- Reflow into one column when the viewport reaches \`singleColumnWidth\`.
+- Use a clean 2×2 layout on desktop.
+- Reflow into one full-width scrolling column when the viewport reaches \`singleColumnWidth\` (700 is recommended for touch screens; desktop can use 520).
+- Keep the 2×2 layout available with \`responsive = false\` or a lower threshold.
 - Accept all normal controls.
 - Support icons instead of long names.
 - Support nested tabboxes.
@@ -162,6 +164,12 @@ control:DependsOn("distance", function(value)
     return tonumber(value) and value >= 100
 end, "visible")
 \`\`\`
+
+## Slider and dropdown layout
+
+Sliders use a fixed touch-friendly track row. If \`info\` is supplied, the description is placed below the label and above the track, while the current value stays aligned on the right.
+
+Dropdowns use a fixed 25px trigger and stable 30px option rows. Their popup repositions above the trigger when it would run off-screen, and long labels are truncated instead of overlapping nearby controls.
 
 ## Search and tooltips
 
