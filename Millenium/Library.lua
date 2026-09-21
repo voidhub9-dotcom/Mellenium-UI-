@@ -3438,7 +3438,7 @@
                         AnchorPoint = vec2(1, 0);
                         Parent = items[ "right_components" ];
                         Name = "\0";
-                        Position = dim2(0, 0, 0, 0);
+                        Position = dim2(1, 0, 0, 0);
                         Size = dim2(0, cfg.width, 0, 25);
                         BorderSizePixel = 0;
                         TextSize = 14;
