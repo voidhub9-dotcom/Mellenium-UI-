@@ -3066,9 +3066,9 @@
                     Parent = self.items[ "elements" ];
                     Name = "\0";
                     BackgroundTransparency = 1;
-                    Size = dim2(1, 0, 0, 0);
+                    Size = dim2(1, 0, 0, 54);
                     BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.Y;
+                    AutomaticSize = Enum.AutomaticSize.None;
                     TextSize = 14;
                     BackgroundColor3 = rgb(255, 255, 255)
                 });
@@ -3080,12 +3080,13 @@
                     Text = cfg.name;
                     Parent = items[ "slider_object" ];
                     Name = "\0";
-                    Size = dim2(1, 0, 0, 0);
+                    Size = dim2(0.7, -8, 0, 22);
                     BackgroundTransparency = 1;
                     TextXAlignment = Enum.TextXAlignment.Left;
+                    TextTruncate = Enum.TextTruncate.AtEnd;
                     BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 16;
+                    AutomaticSize = Enum.AutomaticSize.None;
+                    TextSize = 14;
                     BackgroundColor3 = rgb(255, 255, 255)
                 });
                 
@@ -3098,13 +3099,13 @@
                         Text = cfg.info;
                         Parent = items[ "slider_object" ];
                         Name = "\0";
-                        Position = dim2(0, 5, 0, 37);
-                        Size = dim2(1, -10, 0, 0);
+                        Position = dim2(0, 5, 0, 24);
+                        Size = dim2(1, -10, 0, 30);
                         BackgroundTransparency = 1;
                         TextXAlignment = Enum.TextXAlignment.Left;
                         BorderSizePixel = 0;
-                        AutomaticSize = Enum.AutomaticSize.XY;
-                        TextSize = 16;
+                        AutomaticSize = Enum.AutomaticSize.None;
+                        TextSize = 12;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
                 end 
@@ -3119,9 +3120,9 @@
                     Parent = items[ "slider_object" ];
                     Name = "\0";
                     BackgroundTransparency = 1;
-                    Position = dim2(0, 4, 0, 23);
+                    Position = dim2(0, 4, 0, 25);
                     BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(1, 0, 0, 12);
+                    Size = dim2(1, 0, 0, 20);
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(255, 255, 255)
                 });
@@ -3212,8 +3213,9 @@
                     Text = "50%";
                     Parent = items[ "slider_object" ];
                     Name = "\0";
-                    Size = dim2(1, 0, 0, 0);
-                    Position = dim2(0, 6, 0, 0);
+                    Size = dim2(0.3, -8, 0, 20);
+                    Position = dim2(1, -5, 0, 0);
+                    AnchorPoint = vec2(1, 0);
                     BackgroundTransparency = 1;
                     TextXAlignment = Enum.TextXAlignment.Right;
                     BorderSizePixel = 0;
@@ -3228,6 +3230,19 @@
                     PaddingLeft = dim(0, 5)
                 });                
             end 
+
+            local function layout_slider()
+                local info_height = items.info and 30 or 0
+                local controls_y = items.info and 48 or 25
+                items.slider_object.Size = dim2(1, 0, 0, controls_y + 28)
+                items.right_components.Position = dim2(0, 4, 0, controls_y)
+                items.right_components.Size = dim2(1, -8, 0, 20)
+                if items.info then
+                    items.info.Position = dim2(0, 5, 0, 24)
+                    items.info.Size = dim2(1, -10, 0, info_height)
+                end
+            end
+            task.defer(layout_slider)
 
             function cfg.set(value)
                 cfg.value = clamp(library:round(value, cfg.intervals), cfg.min, cfg.max)
@@ -3344,9 +3359,9 @@
                         Parent = self.items[ "elements" ];
                         Name = "\0";
                         BackgroundTransparency = 1;
-                        Size = dim2(1, 0, 0, 0);
+                        Size = dim2(1, 0, 0, cfg.info and 62 or 34);
                         BorderSizePixel = 0;
-                        AutomaticSize = Enum.AutomaticSize.Y;
+                        AutomaticSize = Enum.AutomaticSize.None;
                         TextSize = 14;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
@@ -3358,12 +3373,13 @@
                         Text = "Dropdown";
                         Parent = items[ "dropdown_object" ];
                         Name = "\0";
-                        Size = dim2(1, 0, 0, 0);
+                        Size = dim2(1, -(cfg.width + 16), 0, 22);
                         BackgroundTransparency = 1;
                         TextXAlignment = Enum.TextXAlignment.Left;
+                        TextTruncate = Enum.TextTruncate.AtEnd;
                         BorderSizePixel = 0;
-                        AutomaticSize = Enum.AutomaticSize.XY;
-                        TextSize = 16;
+                        AutomaticSize = Enum.AutomaticSize.None;
+                        TextSize = 14;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
                     
@@ -3376,13 +3392,13 @@
                             Text = cfg.info;
                             Parent = items[ "dropdown_object" ];
                             Name = "\0";
-                            Position = dim2(0, 5, 0, 17);
-                            Size = dim2(1, -10, 0, 0);
+                            Position = dim2(0, 5, 0, 25);
+                            Size = dim2(1, -(cfg.width + 16), 0, 30);
                             BackgroundTransparency = 1;
                             TextXAlignment = Enum.TextXAlignment.Left;
                             BorderSizePixel = 0;
-                            AutomaticSize = Enum.AutomaticSize.XY;
-                            TextSize = 16;
+                            AutomaticSize = Enum.AutomaticSize.None;
+                            TextSize = 12;
                             BackgroundColor3 = rgb(255, 255, 255)
                         });
                     end 
@@ -3396,10 +3412,12 @@
                     items[ "right_components" ] = library:create( "Frame" , {
                         Parent = items[ "dropdown_object" ];
                         Name = "\0";
-                        Position = dim2(1, 0, 0, 0);
+                        AnchorPoint = vec2(1, 0);
+                        Position = dim2(1, -5, 0, 0);
                         BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(0, 0, 1, 0);
+                        Size = dim2(0, cfg.width, 1, 0);
                         BorderSizePixel = 0;
+                        BackgroundTransparency = 1;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
                     
@@ -3420,8 +3438,8 @@
                         AnchorPoint = vec2(1, 0);
                         Parent = items[ "right_components" ];
                         Name = "\0";
-                        Position = dim2(1, 0, 0, 0);
-                        Size = dim2(0, cfg.width, 0, 16);
+                        Position = dim2(0, 0, 0, 0);
+                        Size = dim2(0, cfg.width, 0, 25);
                         BorderSizePixel = 0;
                         TextSize = 14;
                         BackgroundColor3 = rgb(33, 33, 35)
@@ -3439,13 +3457,14 @@
                         Text = "awdawdawdawdawdawdawdaw";
                         Parent = items[ "dropdown" ];
                         Name = "\0";
-                        Size = dim2(1, -12, 0, 0);
+                        Size = dim2(1, -28, 1, 0);
                         BorderSizePixel = 0;
                         BackgroundTransparency = 1;
                         TextXAlignment = Enum.TextXAlignment.Left;
+                        TextYAlignment = Enum.TextYAlignment.Center;
                         TextTruncate = Enum.TextTruncate.AtEnd;
-                        AutomaticSize = Enum.AutomaticSize.Y;
-                        TextSize = 14;
+                        AutomaticSize = Enum.AutomaticSize.None;
+                        TextSize = 13;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
                     
@@ -3522,12 +3541,13 @@
                     Text = text;
                     Parent = items[ "outline" ];
                     Name = "\0";
-                    Size = dim2(1, -12, 0, 0);
+                    Size = dim2(1, -12, 0, 30);
                     BackgroundTransparency = 1;
                     TextXAlignment = Enum.TextXAlignment.Left;
+                    TextYAlignment = Enum.TextYAlignment.Center;
                     BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.Y;
-                    TextSize = 14;
+                    AutomaticSize = Enum.AutomaticSize.None;
+                    TextSize = 13;
                     BackgroundColor3 = rgb(255, 255, 255);
                     ZIndex = 10;
                 }); library:apply_theme(button, "accent", "TextColor3");
@@ -3596,7 +3616,7 @@
 
                 for _, option in list do 
                     local button = cfg.render_option(option)
-                    cfg.y_size += button.AbsoluteSize.Y + 6 -- super annoying manual sizing but oh well
+                    cfg.y_size += 35
                     insert(cfg.option_instances, button)
                     
                     button.Activated:Connect(function()
@@ -5744,10 +5764,10 @@ do
     extension.themes = {
         Void = {
             accent = rgb(155, 150, 219);
-            background = rgb(14, 14, 16);
-            panel = rgb(22, 22, 24);
-            surface = rgb(25, 25, 29);
-            control = rgb(33, 33, 35);
+            background = rgb(8, 8, 10);
+            panel = rgb(13, 13, 16);
+            surface = rgb(18, 18, 21);
+            control = rgb(26, 26, 30);
             text = rgb(245, 245, 245);
             muted = rgb(145, 145, 145);
         };
@@ -6805,6 +6825,7 @@ do
     end
     library.unload_menu = library.unload
     library.Unload = library.unload
+    library:ApplyTheme("Void")
 end
 
 return library
