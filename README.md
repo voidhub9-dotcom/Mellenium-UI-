@@ -290,7 +290,7 @@ local conflicts = library:FindKeybindConflicts()
 local keybinds = library:GetKeybinds()
 \`\`\`
 
-Notifications stack beneath the mobile safe area, show at most four cards on small viewports, include a close button and countdown bar, and restack automatically when one closes.
+Notifications use compact toast cards beneath the mobile safe area, show at most two cards on small viewports, include a close button and countdown line, and restack automatically when one closes.
 
 Notification history is session-local and capped at 100 entries.
 
