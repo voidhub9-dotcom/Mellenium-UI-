@@ -5435,13 +5435,34 @@ do
         self.enabled = enabled
 
         if root then
-            root.Active = enabled
-            if root:IsA("GuiButton") then
-                root.Selectable = enabled
+            if root:GetAttribute("VoidHubEnabledTransparency") == nil then
+                root:SetAttribute("VoidHubEnabledTransparency", root.BackgroundTransparency)
             end
             root.BackgroundTransparency = enabled
-                and (root:GetAttribute("VoidHubEnabledTransparency") or root.BackgroundTransparency)
-                or min(1, root.BackgroundTransparency + 0.25)
+                and root:GetAttribute("VoidHubEnabledTransparency")
+                or min(1, root:GetAttribute("VoidHubEnabledTransparency") + 0.25)
+
+            local input_objects = {root}
+            for _, instance in root:GetDescendants() do
+                input_objects[#input_objects + 1] = instance
+            end
+
+            for _, instance in input_objects do
+                if instance:IsA("GuiButton") then
+                    if instance:GetAttribute("VoidHubEnabledActive") == nil then
+                        instance:SetAttribute("VoidHubEnabledActive", instance.Active)
+                        instance:SetAttribute("VoidHubEnabledSelectable", instance.Selectable)
+                    end
+                    instance.Active = enabled and instance:GetAttribute("VoidHubEnabledActive") or false
+                    instance.Selectable = enabled and instance:GetAttribute("VoidHubEnabledSelectable") or false
+                elseif instance:IsA("TextBox") then
+                    if instance:GetAttribute("VoidHubEnabledEditable") == nil then
+                        instance:SetAttribute("VoidHubEnabledEditable", instance.TextEditable)
+                    end
+                    instance.TextEditable = enabled and instance:GetAttribute("VoidHubEnabledEditable") or false
+                    instance.Active = enabled
+                end
+            end
         end
 
         return self
