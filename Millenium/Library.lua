@@ -6782,8 +6782,12 @@ do
             library[key] = nil
         end
 
-        if getgenv().library == library then
-            getgenv().library = nil
+        local environment = getgenv()
+        if environment.library == library then
+            environment.library = nil
+        end
+        if type(environment.VoidHubUI) == "table" and environment.VoidHubUI.library == library then
+            environment.VoidHubUI = nil
         end
         return true
     end
