@@ -5320,4 +5320,1431 @@
     --
 -- 
 
+-- Extensions
+do
+    local extension = {
+        version = "1.0.0";
+        controls = {};
+        keybinds = {};
+        themes = {};
+        plugins = {};
+        notification_history = {};
+        drawers = {};
+        auto_save_token = 0;
+        unloading = false;
+    }
+    library.Extensions = extension
+
+    local base_groupboxes = library.groupboxes
+    local base_section = library.section
+    local base_toggle = library.toggle
+    local base_slider = library.slider
+    local base_dropdown = library.dropdown
+    local base_label = library.label
+    local base_colorpicker = library.colorpicker
+    local base_textbox = library.textbox
+    local base_keybind = library.keybind
+    local base_button = library.button
+    local base_notification = notifications.create_notification
+
+    local function copy_table(source)
+        local result = {}
+        for key, value in source or {} do
+            result[key] = value
+        end
+        return result
+    end
+
+    local function mobile_view()
+        local current_camera = ws.CurrentCamera or camera
+        local viewport = current_camera and current_camera.ViewportSize
+        return viewport and (uis.TouchEnabled or viewport.X <= 700 or viewport.Y <= 500), viewport
+    end
+
+    local function control_root(control)
+        if not control or type(control.items) ~= "table" then
+            return nil
+        end
+
+        local order = {
+            "toggle", "slider", "dropdown_object", "label_object", "colorpicker_object",
+            "textbox_object", "keybind_element", "button", "label", "outline", "list"
+        }
+
+        for _, key in order do
+            local value = control.items[key]
+            if typeof(value) == "Instance" and value:IsA("GuiObject") then
+                return value
+            end
+        end
+
+        for _, value in control.items do
+            if typeof(value) == "Instance" and value:IsA("GuiObject") then
+                return value
+            end
+        end
+    end
+
+    local function set_button_animation(button)
+        if not button or not button:IsA("GuiButton") or button:GetAttribute("VoidHubAnimated") then
+            return
+        end
+
+        button:SetAttribute("VoidHubAnimated", true)
+        local base_transparency = button.BackgroundTransparency
+        local hover_transparency = max(0, base_transparency - 0.12)
+
+        library:connection(button.MouseEnter, function()
+            if button.Parent then
+                library:tween(button, {BackgroundTransparency = hover_transparency}, Enum.EasingStyle.Quad, 0.12)
+            end
+        end)
+
+        library:connection(button.MouseLeave, function()
+            if button.Parent then
+                library:tween(button, {BackgroundTransparency = base_transparency}, Enum.EasingStyle.Quad, 0.12)
+            end
+        end)
+
+        library:connection(button.InputBegan, function(input)
+            if input.UserInputType == Enum.UserInputType.Touch
+                or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                library:tween(button, {BackgroundTransparency = max(0, hover_transparency - 0.1)}, Enum.EasingStyle.Quad, 0.08)
+            end
+        end)
+
+        library:connection(button.InputEnded, function(input)
+            if input.UserInputType == Enum.UserInputType.Touch
+                or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                library:tween(button, {BackgroundTransparency = base_transparency}, Enum.EasingStyle.Quad, 0.1)
+            end
+        end)
+    end
+
+    function library:SetVisible(value)
+        local root = control_root(self)
+        if root then
+            root.Visible = value ~= false
+        end
+        return self
+    end
+
+    function library:SetEnabled(value)
+        local enabled = value ~= false
+        local root = control_root(self)
+        self.enabled = enabled
+
+        if root then
+            root.Active = enabled
+            if root:IsA("GuiButton") then
+                root.Selectable = enabled
+            end
+            root.BackgroundTransparency = enabled
+                and (root:GetAttribute("VoidHubEnabledTransparency") or root.BackgroundTransparency)
+                or min(1, root.BackgroundTransparency + 0.25)
+        end
+
+        return self
+    end
+
+    function library:DependsOn(flag, expected, mode)
+        expected = expected == nil and true or expected
+        mode = string.lower(tostring(mode or "visible"))
+        local last
+
+        local function update()
+            local matches
+            if type(expected) == "function" then
+                matches = expected(flags[flag], flags)
+            else
+                matches = flags[flag] == expected
+            end
+
+            if matches == last then
+                return
+            end
+            last = matches
+
+            if mode == "enabled" then
+                self:SetEnabled(matches)
+            else
+                self:SetVisible(matches)
+            end
+        end
+
+        update()
+        library:connection(run.Heartbeat, update)
+        return self
+    end
+
+    function library:Tooltip(target, text, options)
+        options = options or {}
+        if not target or text == nil or tostring(text) == "" then
+            return nil
+        end
+
+        local holder = library:create("Frame", {
+            Parent = library.items;
+            Name = "VoidHubTooltip";
+            Visible = false;
+            AutomaticSize = Enum.AutomaticSize.XY;
+            BackgroundColor3 = rgb(19, 19, 21);
+            BorderSizePixel = 0;
+            ZIndex = 90;
+        })
+
+        library:create("UICorner", {
+            Parent = holder;
+            CornerRadius = dim(0, 6);
+        })
+
+        library:create("UIStroke", {
+            Parent = holder;
+            Color = themes.preset.accent;
+            Transparency = 0.35;
+        })
+
+        local label = library:create("TextLabel", {
+            Parent = holder;
+            Text = tostring(text);
+            FontFace = fonts.small;
+            TextSize = 14;
+            TextColor3 = rgb(235, 235, 235);
+            TextWrapped = true;
+            AutomaticSize = Enum.AutomaticSize.XY;
+            Size = dim2(0, min(260, tonumber(options.width) or 220), 0, 0);
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            ZIndex = 91;
+        })
+
+        library:create("UIPadding", {
+            Parent = holder;
+            PaddingLeft = dim(0, 9);
+            PaddingRight = dim(0, 9);
+            PaddingTop = dim(0, 7);
+            PaddingBottom = dim(0, 7);
+        })
+
+        local touch_token = 0
+        local function position()
+            local current_camera = ws.CurrentCamera or camera
+            local viewport = current_camera and current_camera.ViewportSize
+            if not viewport then return end
+            local x = clamp(target.AbsolutePosition.X, 8, max(8, viewport.X - holder.AbsoluteSize.X - 8))
+            local y = target.AbsolutePosition.Y + target.AbsoluteSize.Y + 7
+            if y + holder.AbsoluteSize.Y > viewport.Y - 8 then
+                y = target.AbsolutePosition.Y - holder.AbsoluteSize.Y - 7
+            end
+            holder.Position = dim_offset(x, clamp(y, 8, max(8, viewport.Y - holder.AbsoluteSize.Y - 8)))
+        end
+
+        local function show()
+            holder.Visible = true
+            task.defer(position)
+        end
+
+        local function hide()
+            holder.Visible = false
+        end
+
+        library:connection(target.MouseEnter, show)
+        library:connection(target.MouseLeave, hide)
+        library:connection(target.InputBegan, function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                touch_token += 1
+                local token = touch_token
+                task.delay(0.4, function()
+                    if token == touch_token then show() end
+                end)
+            end
+        end)
+        library:connection(target.InputEnded, function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                touch_token += 1
+                task.delay(1.2, hide)
+            end
+        end)
+
+        local api = {}
+        function api:SetText(value)
+            label.Text = tostring(value)
+            task.defer(position)
+        end
+        function api:Show() show() end
+        function api:Hide() hide() end
+        function api:Destroy()
+            if holder.Parent then holder:Destroy() end
+        end
+        return api
+    end
+
+    function library:SetTooltip(text, options)
+        local root = control_root(self)
+        if root then
+            self.tooltip = library:Tooltip(root, text, options)
+        end
+        return self
+    end
+
+    function library:_register_control(control, kind, options)
+        if not control or control.__voidhub_registered then
+            return control
+        end
+
+        control.__voidhub_registered = true
+        control.kind = kind
+        control.search_name = tostring((options and (options.name or options.Name)) or control.name or kind)
+        control.root = control_root(control)
+        extension.controls[#extension.controls + 1] = control
+
+        if control.root then
+            set_button_animation(control.root)
+        end
+
+        local info = options and (options.info or options.description or options.tooltip)
+        if info then
+            control:SetTooltip(info)
+        end
+
+        return control
+    end
+
+    function library:SearchControls(query)
+        query = string.lower(tostring(query or ""))
+        local matches = {}
+
+        for _, control in extension.controls do
+            local root = control.root or control_root(control)
+            local matched = query == "" or string.find(string.lower(control.search_name or ""), query, 1, true) ~= nil
+            if matched then
+                matches[#matches + 1] = control
+            end
+            if root and root.Parent then
+                if query ~= "" and control.__search_visible == nil then
+                    control.__search_visible = root.Visible
+                end
+                root.Visible = query == "" and (control.__search_visible ~= false) or matched
+                if query == "" then
+                    control.__search_visible = nil
+                end
+            end
+        end
+
+        return matches
+    end
+
+    function library:AddSearch(options)
+        options = options or {}
+        local window = self
+        local parent = window.items and window.items.button_holder
+        if not parent then
+            return nil
+        end
+
+        local frame = library:create("Frame", {
+            Parent = parent;
+            Name = "SearchBar";
+            LayoutOrder = tonumber(options.layoutOrder) or -1000;
+            Size = dim2(1, -18, 0, 32);
+            BackgroundColor3 = rgb(25, 25, 29);
+            BorderSizePixel = 0;
+        })
+
+        library:create("UICorner", {
+            Parent = frame;
+            CornerRadius = dim(0, 7);
+        })
+
+        local input = library:create("TextBox", {
+            Parent = frame;
+            Position = dim2(0, 10, 0, 0);
+            Size = dim2(1, -20, 1, 0);
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            ClearTextOnFocus = false;
+            PlaceholderText = options.placeholder or "Search features";
+            PlaceholderColor3 = rgb(92, 92, 95);
+            Text = "";
+            TextColor3 = rgb(235, 235, 235);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            FontFace = fonts.small;
+            TextSize = 14;
+        })
+
+        library:connection(input:GetPropertyChangedSignal("Text"), function()
+            library:SearchControls(input.Text)
+        end)
+
+        local api = {frame = frame, input = input}
+        function api:Clear()
+            input.Text = ""
+        end
+        function api:Focus()
+            input:CaptureFocus()
+        end
+        return api
+    end
+    library.add_search = library.AddSearch
+
+    extension.themes = {
+        Void = {
+            accent = rgb(155, 150, 219);
+            background = rgb(14, 14, 16);
+            panel = rgb(22, 22, 24);
+            surface = rgb(25, 25, 29);
+            control = rgb(33, 33, 35);
+            text = rgb(245, 245, 245);
+            muted = rgb(145, 145, 145);
+        };
+        Ocean = {
+            accent = rgb(69, 154, 255);
+            background = rgb(10, 15, 22);
+            panel = rgb(16, 24, 34);
+            surface = rgb(20, 31, 44);
+            control = rgb(27, 41, 57);
+            text = rgb(241, 247, 255);
+            muted = rgb(133, 154, 178);
+        };
+        Emerald = {
+            accent = rgb(76, 214, 157);
+            background = rgb(10, 17, 15);
+            panel = rgb(16, 27, 23);
+            surface = rgb(21, 34, 29);
+            control = rgb(28, 44, 37);
+            text = rgb(241, 255, 249);
+            muted = rgb(132, 165, 151);
+        };
+        Crimson = {
+            accent = rgb(241, 82, 103);
+            background = rgb(18, 10, 13);
+            panel = rgb(29, 16, 20);
+            surface = rgb(37, 20, 25);
+            control = rgb(49, 27, 33);
+            text = rgb(255, 242, 245);
+            muted = rgb(174, 134, 143);
+        };
+        Mono = {
+            accent = rgb(225, 225, 225);
+            background = rgb(12, 12, 12);
+            panel = rgb(20, 20, 20);
+            surface = rgb(27, 27, 27);
+            control = rgb(38, 38, 38);
+            text = rgb(245, 245, 245);
+            muted = rgb(145, 145, 145);
+        };
+    }
+
+    local function color_role(instance)
+        if instance:IsA("GuiObject") then
+            local value = instance.BackgroundColor3
+            if value == rgb(14, 14, 16) then return "background" end
+            if value == rgb(22, 22, 24) then return "panel" end
+            if value == rgb(25, 25, 29) or value == rgb(19, 19, 21) then return "surface" end
+            if value == rgb(33, 33, 35) then return "control" end
+        end
+    end
+
+    function library:RegisterTheme(name, data)
+        if type(name) ~= "string" or type(data) ~= "table" then
+            return false
+        end
+        extension.themes[name] = data
+        return true
+    end
+
+    function library:GetThemes()
+        local names = {}
+        for name in extension.themes do
+            names[#names + 1] = name
+        end
+        table.sort(names)
+        return names
+    end
+
+    function library:ApplyTheme(theme)
+        local data = type(theme) == "table" and theme or extension.themes[theme]
+        if not data then
+            return false, "Theme not found"
+        end
+
+        if data.accent then
+            library:update_theme("accent", data.accent)
+        end
+
+        local roots = {library.items, library.mobile_toggle}
+        for _, root in roots do
+            if root then
+                for _, instance in root:GetDescendants() do
+                    if instance:IsA("GuiObject") then
+                        local role = instance:GetAttribute("VoidHubThemeRole") or color_role(instance)
+                        if role and data[role] then
+                            instance:SetAttribute("VoidHubThemeRole", role)
+                            instance.BackgroundColor3 = data[role]
+                        end
+
+                        if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+                            if instance.TextColor3 == rgb(245, 245, 245) and data.text then
+                                instance.TextColor3 = data.text
+                            elseif instance.TextColor3 == rgb(145, 145, 145) and data.muted then
+                                instance.TextColor3 = data.muted
+                            end
+                        end
+                    elseif instance:IsA("UIStroke") and data.accent and instance.Color == themes.preset.accent then
+                        instance.Color = data.accent
+                    end
+                end
+            end
+        end
+
+        extension.current_theme = type(theme) == "string" and theme or "Custom"
+        return true
+    end
+
+    function library:SetFont(font)
+        if typeof(font) ~= "Font" then
+            return false
+        end
+
+        for _, root in {library.items, library.mobile_toggle} do
+            if root then
+                for _, instance in root:GetDescendants() do
+                    if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+                        instance.FontFace = font
+                    end
+                end
+            end
+        end
+        return true
+    end
+
+    function library:SetThemeTransparency(amount)
+        amount = clamp(tonumber(amount) or 0, 0, 0.8)
+        if not library.items then return false end
+
+        for _, instance in library.items:GetDescendants() do
+            if instance:IsA("Frame") and instance.BackgroundTransparency < 1 then
+                local base = instance:GetAttribute("VoidHubBaseTransparency")
+                if base == nil then
+                    base = instance.BackgroundTransparency
+                    instance:SetAttribute("VoidHubBaseTransparency", base)
+                end
+                instance.BackgroundTransparency = clamp(base + amount, 0, 0.95)
+            end
+        end
+        return true
+    end
+
+    function library:theme_manager(options)
+        options = options or {}
+        local section = self
+        local manager = {}
+        manager.theme = section:dropdown({
+            name = options.name or "Theme preset";
+            items = library:GetThemes();
+            default = options.default or "Void";
+            callback = function(value)
+                library:ApplyTheme(value)
+                if options.callback then options.callback(value) end
+            end
+        })
+        manager.transparency = section:slider({
+            name = "Transparency";
+            min = 0;
+            max = 0.6;
+            interval = 0.05;
+            default = tonumber(options.transparency) or 0;
+            callback = function(value)
+                library:SetThemeTransparency(value)
+            end
+        })
+        return manager
+    end
+    library.ThemeManager = library.theme_manager
+
+    function library:SetConfigScope(scope)
+        local directory = library.directory .. "/configs"
+        if scope == "game" or scope == true then
+            directory = directory .. "/" .. tostring(game.GameId ~= 0 and game.GameId or game.PlaceId)
+        elseif type(scope) == "string" and scope ~= "" and scope ~= "global" then
+            directory = directory .. "/" .. scope:gsub("[\\/:*?\"<>|]", "_")
+        end
+
+        if not isfolder(directory) then
+            makefolder(directory)
+        end
+
+        extension.config_directory = directory
+        library:update_config_list()
+        return directory
+    end
+
+    function library:GetConfigDirectory()
+        return extension.config_directory or (library.directory .. "/configs")
+    end
+
+    function library:get_config_path(name)
+        local safe_name = sanitize_config_name(name)
+        if not safe_name then return nil, nil end
+        return library:GetConfigDirectory() .. "/" .. safe_name .. ".cfg", safe_name
+    end
+
+    function library:get_config_list()
+        local configs, seen = {}, {}
+        local ok, files = pcall(listfiles, library:GetConfigDirectory())
+        if not ok or type(files) ~= "table" then return configs end
+
+        for _, file in files do
+            local normalized = tostring(file):gsub("\\", "/")
+            local name = normalized:match("([^/]+)%.cfg$")
+            if name and not seen[name] then
+                seen[name] = true
+                configs[#configs + 1] = name
+            end
+        end
+
+        table.sort(configs, function(a, b)
+            return string.lower(a) < string.lower(b)
+        end)
+        return configs
+    end
+
+    function library:DuplicateConfig(source_name, target_name)
+        local source_path = library:get_config_path(source_name)
+        local target_path, safe_target = library:get_config_path(target_name)
+        if not source_path or not target_path then return false, "Enter source and target names" end
+        if isfile and not isfile(source_path) then return false, "Source config does not exist" end
+        local ok, data = pcall(readfile, source_path)
+        if not ok then return false, tostring(data) end
+        local saved, save_error = pcall(writefile, target_path, data)
+        if not saved then return false, tostring(save_error) end
+        library:update_config_list(safe_target)
+        return true, safe_target
+    end
+
+    function library:RenameConfig(source_name, target_name)
+        local copied, result = library:DuplicateConfig(source_name, target_name)
+        if not copied then return false, result end
+        local deleted, delete_error = library:delete_config(source_name)
+        if not deleted then return false, delete_error end
+        library:update_config_list(result)
+        return true, result
+    end
+
+    function library:ExportConfig(name)
+        local path = library:get_config_path(name)
+        if not path then return false, "Select a config" end
+        local ok, data = pcall(readfile, path)
+        if not ok then return false, tostring(data) end
+        return true, data
+    end
+
+    function library:ImportConfig(name, data)
+        local path, safe_name = library:get_config_path(name)
+        if not path then return false, "Enter a config name" end
+        local valid = pcall(function() http_service:JSONDecode(data) end)
+        if not valid then return false, "Invalid config JSON" end
+        local ok, write_error = pcall(writefile, path, data)
+        if not ok then return false, tostring(write_error) end
+        library:update_config_list(safe_name)
+        return true, safe_name
+    end
+
+    function library:EnableAutoSave(name, interval)
+        extension.auto_save_token += 1
+        local token = extension.auto_save_token
+        interval = max(5, tonumber(interval) or 30)
+
+        task.spawn(function()
+            while not extension.unloading and token == extension.auto_save_token do
+                task.wait(interval)
+                if token == extension.auto_save_token and not extension.unloading then
+                    library:save_config(name)
+                end
+            end
+        end)
+
+        return token
+    end
+
+    function library:DisableAutoSave()
+        extension.auto_save_token += 1
+    end
+
+    function library:multi_dropdown(options)
+        options = copy_table(options)
+        options.multi = true
+        local control = self:dropdown(options)
+        local all_options = options.items or {}
+
+        function control:SelectAll()
+            control.set(all_options)
+            return control
+        end
+
+        function control:Clear()
+            control.set({})
+            return control
+        end
+
+        function control:SearchOptions(query)
+            query = string.lower(tostring(query or ""))
+            local filtered = {}
+            for _, value in all_options do
+                if query == "" or string.find(string.lower(tostring(value)), query, 1, true) then
+                    filtered[#filtered + 1] = value
+                end
+            end
+            control.refresh_options(filtered)
+            return filtered
+        end
+
+        local outline = control.items and control.items.outline
+        if outline then
+            local actions = library:create("Frame", {
+                Parent = outline;
+                LayoutOrder = -100;
+                Size = dim2(1, -6, 0, 28);
+                BackgroundTransparency = 1;
+                BorderSizePixel = 0;
+                ZIndex = 11;
+            })
+            local all = library:create("TextButton", {
+                Parent = actions;
+                Text = "All";
+                Size = dim2(0.5, -2, 1, 0);
+                BackgroundColor3 = rgb(42, 42, 45);
+                TextColor3 = rgb(220, 220, 220);
+                FontFace = fonts.small;
+                TextSize = 13;
+                BorderSizePixel = 0;
+                ZIndex = 12;
+            })
+            local clear = library:create("TextButton", {
+                Parent = actions;
+                Text = "Clear";
+                Position = dim2(0.5, 2, 0, 0);
+                Size = dim2(0.5, -2, 1, 0);
+                BackgroundColor3 = rgb(42, 42, 45);
+                TextColor3 = rgb(220, 220, 220);
+                FontFace = fonts.small;
+                TextSize = 13;
+                BorderSizePixel = 0;
+                ZIndex = 12;
+            })
+            library:create("UICorner", {Parent = all; CornerRadius = dim(0, 4)})
+            library:create("UICorner", {Parent = clear; CornerRadius = dim(0, 4)})
+            library:connection(all.Activated, function() control:SelectAll() end)
+            library:connection(clear.Activated, function() control:Clear() end)
+
+            local old_refresh = control.refresh_options
+            control.refresh_options = function(list)
+                old_refresh(list)
+                control.y_size += 34
+            end
+            control.y_size += 34
+        end
+
+        return control
+    end
+    library.MultiDropdown = library.multi_dropdown
+
+    function library:CreateDrawer(options)
+        options = options or {}
+        local _, viewport = mobile_view()
+        viewport = viewport or vec2(800, 600)
+        local height = min(tonumber(options.height) or 300, viewport.Y - 24)
+
+        local overlay = library:create("TextButton", {
+            Parent = library.items;
+            Name = "MobileDrawerOverlay";
+            Text = "";
+            AutoButtonColor = false;
+            Size = dim2(1, 0, 1, 0);
+            BackgroundColor3 = rgb(0, 0, 0);
+            BackgroundTransparency = 0.35;
+            BorderSizePixel = 0;
+            Visible = false;
+            ZIndex = 70;
+        })
+
+        local drawer = library:create("Frame", {
+            Parent = overlay;
+            AnchorPoint = vec2(0.5, 1);
+            Position = dim2(0.5, 0, 1, 0);
+            Size = dim2(1, -24, 0, height);
+            BackgroundColor3 = rgb(19, 19, 21);
+            BorderSizePixel = 0;
+            ZIndex = 71;
+        })
+        library:create("UICorner", {Parent = drawer; CornerRadius = dim(0, 12)})
+
+        local title = library:create("TextLabel", {
+            Parent = drawer;
+            Text = options.title or "Options";
+            Position = dim2(0, 14, 0, 0);
+            Size = dim2(1, -56, 0, 44);
+            BackgroundTransparency = 1;
+            TextColor3 = rgb(245, 245, 245);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            FontFace = fonts.font;
+            TextSize = 16;
+            BorderSizePixel = 0;
+            ZIndex = 72;
+        })
+
+        local close = library:create("TextButton", {
+            Parent = drawer;
+            Text = "×";
+            AnchorPoint = vec2(1, 0);
+            Position = dim2(1, -10, 0, 8);
+            Size = dim2(0, 30, 0, 30);
+            BackgroundColor3 = rgb(33, 33, 35);
+            TextColor3 = rgb(235, 235, 235);
+            FontFace = fonts.font;
+            TextSize = 20;
+            BorderSizePixel = 0;
+            ZIndex = 73;
+        })
+        library:create("UICorner", {Parent = close; CornerRadius = dim(0, 7)})
+
+        local content = library:create("ScrollingFrame", {
+            Parent = drawer;
+            Position = dim2(0, 10, 0, 48);
+            Size = dim2(1, -20, 1, -58);
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            AutomaticCanvasSize = Enum.AutomaticSize.Y;
+            CanvasSize = dim2(0, 0, 0, 0);
+            ScrollBarThickness = 3;
+            ScrollBarImageColor3 = themes.preset.accent;
+            ZIndex = 72;
+        })
+        library:create("UIListLayout", {Parent = content; Padding = dim(0, 8); SortOrder = Enum.SortOrder.LayoutOrder})
+        library:create("UIPadding", {Parent = content; PaddingBottom = dim(0, 8)})
+
+        local api = {overlay = overlay, drawer = drawer, content = content, title = title}
+        function api:Open()
+            overlay.Visible = true
+            drawer.Position = dim2(0.5, 0, 1, height)
+            library:tween(drawer, {Position = dim2(0.5, 0, 1, 0)}, Enum.EasingStyle.Quint, 0.22)
+            return api
+        end
+        function api:Close()
+            library:tween(drawer, {Position = dim2(0.5, 0, 1, height)}, Enum.EasingStyle.Quint, 0.18)
+            task.delay(0.19, function()
+                if overlay.Parent then overlay.Visible = false end
+            end)
+            return api
+        end
+        function api:Toggle()
+            if overlay.Visible then return api:Close() end
+            return api:Open()
+        end
+        function api:Destroy()
+            if overlay.Parent then overlay:Destroy() end
+        end
+
+        library:connection(close.Activated, function() api:Close() end)
+        library:connection(overlay.Activated, function() api:Close() end)
+        extension.drawers[#extension.drawers + 1] = api
+        if options.build then options.build(content, api) end
+        return api
+    end
+
+    function library:Confirm(options)
+        options = options or {}
+        local modal = library:CreateDrawer({
+            title = options.title or "Confirm action";
+            height = tonumber(options.height) or 190;
+        })
+
+        local message = library:create("TextLabel", {
+            Parent = modal.content;
+            Text = options.message or "Are you sure?";
+            Size = dim2(1, -8, 0, 64);
+            BackgroundTransparency = 1;
+            TextColor3 = rgb(190, 190, 194);
+            TextWrapped = true;
+            FontFace = fonts.small;
+            TextSize = 14;
+            BorderSizePixel = 0;
+            ZIndex = 74;
+        })
+
+        local actions = library:create("Frame", {
+            Parent = modal.content;
+            Size = dim2(1, -8, 0, 42);
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            ZIndex = 74;
+        })
+
+        local cancel = library:create("TextButton", {
+            Parent = actions;
+            Text = options.cancelText or "Cancel";
+            Size = dim2(0.5, -4, 1, 0);
+            BackgroundColor3 = rgb(33, 33, 35);
+            TextColor3 = rgb(220, 220, 220);
+            FontFace = fonts.font;
+            TextSize = 14;
+            BorderSizePixel = 0;
+            ZIndex = 75;
+        })
+
+        local confirm = library:create("TextButton", {
+            Parent = actions;
+            Text = options.confirmText or "Confirm";
+            Position = dim2(0.5, 4, 0, 0);
+            Size = dim2(0.5, -4, 1, 0);
+            BackgroundColor3 = themes.preset.accent;
+            TextColor3 = rgb(255, 255, 255);
+            FontFace = fonts.font;
+            TextSize = 14;
+            BorderSizePixel = 0;
+            ZIndex = 75;
+        })
+
+        library:create("UICorner", {Parent = cancel; CornerRadius = dim(0, 7)})
+        library:create("UICorner", {Parent = confirm; CornerRadius = dim(0, 7)})
+        library:connection(cancel.Activated, function()
+            modal:Close()
+            if options.onCancel then options.onCancel() end
+        end)
+        library:connection(confirm.Activated, function()
+            modal:Close()
+            if options.callback then options.callback() end
+        end)
+
+        modal:Open()
+        return modal
+    end
+
+    function library:progressbar(options)
+        options = options or {}
+        local cfg = {
+            name = options.name or "Progress";
+            value = tonumber(options.default) or 0;
+            min = tonumber(options.min) or 0;
+            max = tonumber(options.max) or 100;
+            items = {};
+        }
+        local items = cfg.items
+        items.progress = library:create("Frame", {
+            Parent = self.items.elements;
+            Size = dim2(1, 0, 0, 40);
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+        })
+        items.name = library:create("TextLabel", {
+            Parent = items.progress;
+            Text = cfg.name;
+            Size = dim2(0.7, 0, 0, 18);
+            BackgroundTransparency = 1;
+            TextColor3 = rgb(245, 245, 245);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            FontFace = fonts.small;
+            TextSize = 14;
+            BorderSizePixel = 0;
+        })
+        items.value = library:create("TextLabel", {
+            Parent = items.progress;
+            Text = "";
+            AnchorPoint = vec2(1, 0);
+            Position = dim2(1, 0, 0, 0);
+            Size = dim2(0.3, 0, 0, 18);
+            BackgroundTransparency = 1;
+            TextColor3 = rgb(145, 145, 145);
+            TextXAlignment = Enum.TextXAlignment.Right;
+            FontFace = fonts.small;
+            TextSize = 13;
+            BorderSizePixel = 0;
+        })
+        items.track = library:create("Frame", {
+            Parent = items.progress;
+            Position = dim2(0, 0, 0, 25);
+            Size = dim2(1, 0, 0, 7);
+            BackgroundColor3 = rgb(38, 38, 41);
+            BorderSizePixel = 0;
+        })
+        items.fill = library:create("Frame", {
+            Parent = items.track;
+            Size = dim2(0, 0, 1, 0);
+            BackgroundColor3 = themes.preset.accent;
+            BorderSizePixel = 0;
+        })
+        library:create("UICorner", {Parent = items.track; CornerRadius = dim(0, 999)})
+        library:create("UICorner", {Parent = items.fill; CornerRadius = dim(0, 999)})
+        library:apply_theme(items.fill, "accent", "BackgroundColor3")
+
+        function cfg:Set(value)
+            cfg.value = clamp(tonumber(value) or cfg.min, cfg.min, cfg.max)
+            local alpha = cfg.max == cfg.min and 0 or (cfg.value - cfg.min) / (cfg.max - cfg.min)
+            items.value.Text = tostring(library:round(cfg.value, options.interval or 1)) .. (options.suffix or "")
+            library:tween(items.fill, {Size = dim2(alpha, 0, 1, 0)}, Enum.EasingStyle.Quad, 0.16)
+            return cfg.value
+        end
+        cfg.set = cfg.Set
+        cfg:Set(cfg.value)
+        return library:_register_control(setmetatable(cfg, library), "progress", options)
+    end
+    library.ProgressBar = library.progressbar
+
+    function library:status(options)
+        options = options or {}
+        local cfg = {name = options.name or "Status"; value = options.default or "Ready"; items = {}}
+        local items = cfg.items
+        items.status = library:create("Frame", {
+            Parent = self.items.elements;
+            Size = dim2(1, 0, 0, 30);
+            BackgroundColor3 = rgb(25, 25, 29);
+            BorderSizePixel = 0;
+        })
+        library:create("UICorner", {Parent = items.status; CornerRadius = dim(0, 6)})
+        items.dot = library:create("Frame", {
+            Parent = items.status;
+            AnchorPoint = vec2(0, 0.5);
+            Position = dim2(0, 9, 0.5, 0);
+            Size = dim2(0, 8, 0, 8);
+            BackgroundColor3 = options.color or themes.preset.accent;
+            BorderSizePixel = 0;
+        })
+        library:create("UICorner", {Parent = items.dot; CornerRadius = dim(0, 999)})
+        items.text = library:create("TextLabel", {
+            Parent = items.status;
+            Position = dim2(0, 24, 0, 0);
+            Size = dim2(1, -32, 1, 0);
+            BackgroundTransparency = 1;
+            Text = cfg.name .. ": " .. tostring(cfg.value);
+            TextColor3 = rgb(225, 225, 225);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            FontFace = fonts.small;
+            TextSize = 14;
+            BorderSizePixel = 0;
+        })
+        function cfg:Set(value, color_value)
+            cfg.value = value
+            items.text.Text = cfg.name .. ": " .. tostring(value)
+            if color_value then items.dot.BackgroundColor3 = color_value end
+        end
+        cfg.set = cfg.Set
+        return library:_register_control(setmetatable(cfg, library), "status", options)
+    end
+    library.Status = library.status
+
+    function library:timer(options)
+        options = options or {}
+        local duration = max(0, tonumber(options.duration) or 60)
+        local remaining = duration
+        local control = self:status({name = options.name or "Timer"; default = remaining .. "s"; color = options.color})
+        local token = 0
+
+        function control:Start(seconds)
+            token += 1
+            local current = token
+            remaining = tonumber(seconds) or duration
+            task.spawn(function()
+                while current == token and remaining >= 0 and not extension.unloading do
+                    control:Set(math.ceil(remaining) .. "s")
+                    if remaining <= 0 then break end
+                    task.wait(1)
+                    remaining -= 1
+                end
+                if current == token and options.callback then options.callback() end
+            end)
+        end
+        function control:Stop() token += 1 end
+        function control:Reset() control:Stop(); remaining = duration; control:Set(math.ceil(remaining) .. "s") end
+        if options.autoStart then control:Start() end
+        return control
+    end
+    library.Timer = library.timer
+
+    function library:profile(options)
+        options = options or {}
+        local cfg = {items = {}, name = options.name or lp.DisplayName}
+        local items = cfg.items
+        items.profile = library:create("Frame", {
+            Parent = self.items.elements;
+            Size = dim2(1, 0, 0, 82);
+            BackgroundColor3 = rgb(25, 25, 29);
+            BorderSizePixel = 0;
+        })
+        library:create("UICorner", {Parent = items.profile; CornerRadius = dim(0, 8)})
+        items.avatar = library:create("ImageLabel", {
+            Parent = items.profile;
+            Position = dim2(0, 10, 0.5, -27);
+            Size = dim2(0, 54, 0, 54);
+            Image = options.image or ("rbxthumb://type=AvatarHeadShot&id=" .. tostring(lp.UserId) .. "&w=150&h=150");
+            BackgroundColor3 = rgb(33, 33, 35);
+            BorderSizePixel = 0;
+        })
+        library:create("UICorner", {Parent = items.avatar; CornerRadius = dim(0, 10)})
+        items.name = library:create("TextLabel", {
+            Parent = items.profile;
+            Position = dim2(0, 74, 0, 12);
+            Size = dim2(1, -84, 0, 20);
+            BackgroundTransparency = 1;
+            Text = options.name or lp.DisplayName;
+            TextColor3 = rgb(245, 245, 245);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            FontFace = fonts.font;
+            TextSize = 16;
+            BorderSizePixel = 0;
+        })
+        items.info = library:create("TextLabel", {
+            Parent = items.profile;
+            Position = dim2(0, 74, 0, 34);
+            Size = dim2(1, -84, 0, 17);
+            BackgroundTransparency = 1;
+            Text = options.game or game.Name;
+            TextColor3 = rgb(145, 145, 145);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            TextTruncate = Enum.TextTruncate.AtEnd;
+            FontFace = fonts.small;
+            TextSize = 13;
+            BorderSizePixel = 0;
+        })
+        items.stats = library:create("TextLabel", {
+            Parent = items.profile;
+            Position = dim2(0, 74, 0, 53);
+            Size = dim2(1, -84, 0, 16);
+            BackgroundTransparency = 1;
+            Text = "";
+            TextColor3 = rgb(105, 105, 110);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            FontFace = fonts.small;
+            TextSize = 12;
+            BorderSizePixel = 0;
+        })
+
+        local frames, elapsed = 0, 0
+        library:connection(run.RenderStepped, function(delta)
+            frames += 1
+            elapsed += delta
+            if elapsed >= 1 then
+                local fps = math.floor(frames / elapsed + 0.5)
+                local ping = "?"
+                pcall(function()
+                    ping = stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
+                end)
+                local executor = identifyexecutor and ({identifyexecutor()})[1] or "Roblox"
+                items.stats.Text = tostring(fps) .. " FPS  •  " .. tostring(ping) .. "  •  " .. tostring(executor)
+                frames, elapsed = 0, 0
+            end
+        end)
+
+        return library:_register_control(setmetatable(cfg, library), "profile", options)
+    end
+    library.Profile = library.profile
+
+    function library:GetKeybinds()
+        return extension.keybinds
+    end
+
+    function library:FindKeybindConflicts()
+        local used, conflicts = {}, {}
+        for _, entry in extension.keybinds do
+            local value = flags[entry.flag]
+            local key = value and tostring(value.key)
+            if key and key ~= "nil" and key ~= "NONE" then
+                if used[key] then
+                    conflicts[#conflicts + 1] = {key = key; first = used[key]; second = entry}
+                else
+                    used[key] = entry
+                end
+            end
+        end
+        return conflicts
+    end
+
+    function library:CreateKeybindManager(section, options)
+        options = options or {}
+        local manager = {rows = {}}
+
+        function manager:Refresh()
+            for _, row in manager.rows do
+                row:SetVisible(false)
+            end
+            manager.rows = {}
+
+            for _, entry in extension.keybinds do
+                local value = flags[entry.flag]
+                local key = value and value.key or "NONE"
+                local row = section:label({
+                    name = (entry.name or entry.flag) .. ": " .. tostring(key):gsub("Enum.KeyCode.", "");
+                })
+                manager.rows[#manager.rows + 1] = row
+            end
+            return manager.rows
+        end
+
+        manager:Refresh()
+        return manager
+    end
+
+    function notifications:create_notification(options)
+        options = options or {}
+        extension.notification_history[#extension.notification_history + 1] = {
+            name = options.name or "Notification";
+            info = options.info or "";
+            time = os.time();
+        }
+        if #extension.notification_history > 100 then
+            table.remove(extension.notification_history, 1)
+        end
+        return base_notification(self, options)
+    end
+
+    function library:Notify(options)
+        if type(options) == "string" then
+            options = {name = "VoidHub"; info = options}
+        end
+        return notifications:create_notification(options or {})
+    end
+
+    function library:GetNotificationHistory()
+        return extension.notification_history
+    end
+
+    function library:ClearNotificationHistory()
+        table.clear(extension.notification_history)
+    end
+
+    function library:CreateNotificationCenter(section, options)
+        options = options or {}
+        local center = {rows = {}}
+
+        function center:Refresh()
+            for _, row in center.rows do
+                row:SetVisible(false)
+            end
+            center.rows = {}
+
+            local history = extension.notification_history
+            local first = max(1, #history - (tonumber(options.limit) or 5) + 1)
+            for index = #history, first, -1 do
+                local entry = history[index]
+                center.rows[#center.rows + 1] = section:label({
+                    name = entry.name;
+                    info = entry.info;
+                })
+            end
+            return center.rows
+        end
+
+        center:Refresh()
+        return center
+    end
+
+    function library:RegisterPlugin(name, initializer)
+        if type(name) ~= "string" or type(initializer) ~= "function" then
+            return false
+        end
+        extension.plugins[name] = {initializer = initializer; loaded = false}
+        return true
+    end
+
+    function library:LoadPlugin(name, context)
+        local plugin = extension.plugins[name]
+        if not plugin then return false, "Plugin not found" end
+        if plugin.loaded then return true, plugin.instance end
+        local ok, instance = pcall(plugin.initializer, library, context or {})
+        if not ok then return false, tostring(instance) end
+        plugin.instance = instance
+        plugin.loaded = true
+        return true, instance
+    end
+
+    function library:UnloadPlugin(name)
+        local plugin = extension.plugins[name]
+        if not plugin then return false, "Plugin not found" end
+        if plugin.instance and type(plugin.instance.Unload) == "function" then
+            pcall(function() plugin.instance:Unload() end)
+        elseif plugin.instance and type(plugin.instance.unload) == "function" then
+            pcall(function() plugin.instance:unload() end)
+        end
+        plugin.instance = nil
+        plugin.loaded = false
+        return true
+    end
+
+    function library:section(options)
+        local control = base_section(self, options)
+        return library:_register_control(control, "groupbox", options)
+    end
+
+    function library:toggle(options)
+        return library:_register_control(base_toggle(self, options), "toggle", options)
+    end
+
+    function library:slider(options)
+        return library:_register_control(base_slider(self, options), "slider", options)
+    end
+
+    function library:dropdown(options)
+        return library:_register_control(base_dropdown(self, options), "dropdown", options)
+    end
+
+    function library:label(options)
+        return library:_register_control(base_label(self, options), "label", options)
+    end
+
+    function library:colorpicker(options)
+        return library:_register_control(base_colorpicker(self, options), "colorpicker", options)
+    end
+
+    function library:textbox(options)
+        return library:_register_control(base_textbox(self, options), "textbox", options)
+    end
+
+    function library:keybind(options)
+        local control = library:_register_control(base_keybind(self, options), "keybind", options)
+        extension.keybinds[#extension.keybinds + 1] = {
+            name = options.name;
+            flag = control.flag;
+            control = control;
+        }
+        return control
+    end
+
+    function library:button(options)
+        options = options or {}
+        local source = copy_table(options)
+        local callback = source.callback or function() end
+        local confirm_mode = source.confirmMode or source.confirm_mode
+
+        if source.confirm == true and confirm_mode ~= "hold" then
+            source.callback = function()
+                library:Confirm({
+                    title = source.confirmTitle or "Confirm action";
+                    message = source.confirmMessage or ("Continue with " .. tostring(source.name or "this action") .. "?");
+                    confirmText = source.confirmText;
+                    cancelText = source.cancelText;
+                    callback = callback;
+                })
+            end
+        elseif confirm_mode == "hold" or source.holdToConfirm == true then
+            source.callback = function() end
+        end
+
+        local control = library:_register_control(base_button(self, source), "button", source)
+        if confirm_mode == "hold" or source.holdToConfirm == true then
+            local button = control.items and control.items.button
+            local holding = 0
+            if button then
+                library:connection(button.InputBegan, function(input)
+                    if input.UserInputType == Enum.UserInputType.Touch
+                        or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        holding += 1
+                        local token = holding
+                        library:tween(button, {BackgroundColor3 = themes.preset.accent}, Enum.EasingStyle.Linear, tonumber(source.holdDuration) or 0.7)
+                        task.delay(tonumber(source.holdDuration) or 0.7, function()
+                            if token == holding and button.Parent then
+                                callback()
+                                button.BackgroundColor3 = rgb(33, 33, 35)
+                            end
+                        end)
+                    end
+                end)
+                library:connection(button.InputEnded, function(input)
+                    if input.UserInputType == Enum.UserInputType.Touch
+                        or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        holding += 1
+                        library:tween(button, {BackgroundColor3 = rgb(33, 33, 35)}, Enum.EasingStyle.Quad, 0.12)
+                    end
+                end)
+            end
+        end
+        return control
+    end
+
+    function library:groupboxes(properties)
+        properties = properties or {}
+        local boxes = base_groupboxes(self, properties)
+        local left = boxes.left_column and boxes.left_column.items.column
+        local right = boxes.right_column and boxes.right_column.items.column
+        local threshold = tonumber(properties.singleColumnWidth or properties.single_column_width) or 520
+        local responsive = properties.responsive ~= false
+        local original_parents = {
+            top_left = left;
+            bottom_left = left;
+            top_right = right;
+            bottom_right = right;
+        }
+
+        local function set_parent(box, parent)
+            if box and box.items and box.items.outline then
+                box.items.outline.Parent = parent
+            end
+        end
+
+        function boxes:UpdateResponsive()
+            if not responsive or not left or not right then return false end
+            local current_camera = ws.CurrentCamera or camera
+            local viewport = current_camera and current_camera.ViewportSize
+            local single = viewport and viewport.X <= threshold
+
+            if single then
+                set_parent(boxes.top_left, left)
+                set_parent(boxes.top_right, left)
+                set_parent(boxes.bottom_left, left)
+                set_parent(boxes.bottom_right, left)
+                right.Visible = false
+            else
+                set_parent(boxes.top_left, original_parents.top_left)
+                set_parent(boxes.bottom_left, original_parents.bottom_left)
+                set_parent(boxes.top_right, original_parents.top_right)
+                set_parent(boxes.bottom_right, original_parents.bottom_right)
+                right.Visible = true
+            end
+
+            return single
+        end
+
+        boxes:UpdateResponsive()
+        local current_camera = ws.CurrentCamera or camera
+        if current_camera then
+            library:connection(current_camera:GetPropertyChangedSignal("ViewportSize"), function()
+                boxes:UpdateResponsive()
+            end)
+        end
+        return boxes
+    end
+    library.groupbox_grid = library.groupboxes
+    library.group_boxes = library.groupboxes
+
+    function library:unload()
+        if extension.unloading then return true end
+        extension.unloading = true
+        extension.auto_save_token += 1
+
+        for name, plugin in extension.plugins do
+            if plugin.loaded then
+                pcall(function() library:UnloadPlugin(name) end)
+            end
+        end
+
+        for _, connection in library.connections do
+            pcall(function() connection:Disconnect() end)
+        end
+        table.clear(library.connections)
+
+        for _, key in {"items", "other", "mobile_toggle"} do
+            local instance = library[key]
+            if typeof(instance) == "Instance" then
+                pcall(function() instance:Destroy() end)
+            end
+            library[key] = nil
+        end
+
+        if getgenv().library == library then
+            getgenv().library = nil
+        end
+        return true
+    end
+    library.unload_menu = library.unload
+    library.Unload = library.unload
+end
+
 return library
