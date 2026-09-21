@@ -5201,7 +5201,7 @@
             end
             notifications.notifs = active
 
-            local offset = 18
+            local offset = get_gui_offset() + 14
             for _, notification in active do
                 local height = notification:GetAttribute("VoidHubNotificationHeight")
                     or notification.AbsoluteSize.Y
@@ -5275,7 +5275,7 @@
                 Parent = notification_library.items;
                 Name = "VoidHubNotification";
                 AnchorPoint = vec2(1, 0);
-                Position = dim2(1, width + 24, 0, 18);
+                Position = dim2(1, width + 24, 0, get_gui_offset() + 14);
                 Size = dim2(0, width, 0, height);
                 BackgroundColor3 = rgb(11, 11, 14);
                 BackgroundTransparency = 0.04;
@@ -5455,7 +5455,8 @@
             end)
 
             notifications.notifs[#notifications.notifs + 1] = items.notification
-            while #notifications.notifs > 5 do
+            local max_visible = viewport.Y <= 500 and 4 or 5
+            while #notifications.notifs > max_visible do
                 local oldest = table.remove(notifications.notifs, 1)
                 if oldest and oldest.Parent then
                     oldest:Destroy()
@@ -6702,6 +6703,7 @@ do
             name = options.name or "Notification";
             info = options.info or "";
             time = os.time();
+            kind = options.type or options.kind or "info";
         }
         if #extension.notification_history > 100 then
             table.remove(extension.notification_history, 1)
