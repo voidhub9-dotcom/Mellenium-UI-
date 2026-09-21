@@ -268,16 +268,34 @@ The profile card displays the local avatar and updates FPS, ping, and executor i
 
 ## Notifications and keybind manager
 
-\`\`\`lua
+Notifications follow Obsidian's panel layout and support its naming style. Lowercase VoidHub aliases such as `name`, `info`, and `lifetime` remain compatible.
+
+```lua
 local notification = library:Notify({
-    name = "VoidHub UI",
-    info = "Feature enabled",
-    type = "success", -- "info", "success", "warning", or "error"
-    lifetime = 4
+    Title = "VoidHub UI",
+    Description = "Feature enabled",
+    Icon = "success",
+    Time = 4,
+    Closable = true
 })
 
--- Notifications can also be closed manually.
-notification:Close()
+notification:ChangeTitle("VoidHub")
+notification:ChangeDescription("Feature updated")
+notification:Destroy()
+
+-- Quick positional form
+library:Notify("Hello world!", 4)
+
+-- Persistent and step-based notifications
+local progress = library:Notify({
+    Title = "Loading",
+    Description = "Preparing features...",
+    Steps = 10,
+    Persist = true
+})
+
+progress:ChangeStep(5)
+progress:Destroy()
 
 local center = library:CreateNotificationCenter(boxes.bottom_right, {limit = 5})
 center:Refresh()
@@ -288,9 +306,9 @@ manager:Refresh()
 
 local conflicts = library:FindKeybindConflicts()
 local keybinds = library:GetKeybinds()
-\`\`\`
+```
 
-Notifications use a one-line snackbar beneath the mobile safe area. Small viewports show only the newest alert; tap the snackbar to dismiss it. Desktop can stack up to four alerts.
+Notifications use Obsidian-style padding, double outlines, monospaced title and description text, an inset accent progress bar, right-edge slide animations, optional icons and close controls, sounds, persistence, and live updates. Mobile shows up to three notifications; desktop shows up to five.
 
 Notification history is session-local and capped at 100 entries.
 
