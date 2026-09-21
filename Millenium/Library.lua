@@ -223,26 +223,33 @@
             if not viewport then return false end
 
             local parent = frame.Parent
-            local parent_position = vec2(0, 0)
-            local parent_size = viewport
+            local coordinate_origin = vec2(0, 0)
+            local bounds_position = vec2(0, 0)
+            local bounds_size = viewport
+
             if parent and parent:IsA("GuiObject") then
-                parent_position = parent.AbsolutePosition
-                parent_size = parent.AbsoluteSize
+                coordinate_origin = parent.AbsolutePosition
+                bounds_position = parent.AbsolutePosition
+                bounds_size = parent.AbsoluteSize
+            elseif parent and parent:IsA("ScreenGui") then
+                -- IgnoreGuiInset ScreenGuis can report a negative absolute Y origin
+                -- on mobile executors. Visible viewport bounds still begin at (0, 0).
+                coordinate_origin = vec2(0, -get_gui_offset())
             end
 
             local size = frame.AbsoluteSize
             local position = frame.AbsolutePosition
-            local min_x = parent_position.X + padding
-            local min_y = parent_position.Y + padding
-            local max_x = max(min_x, parent_position.X + parent_size.X - size.X - padding)
-            local max_y = max(min_y, parent_position.Y + parent_size.Y - size.Y - padding)
+            local min_x = bounds_position.X + padding
+            local min_y = bounds_position.Y + padding
+            local max_x = max(min_x, bounds_position.X + bounds_size.X - size.X - padding)
+            local max_y = max(min_y, bounds_position.Y + bounds_size.Y - size.Y - padding)
             local x = clamp(position.X, min_x, max_x)
             local y = clamp(position.Y, min_y, max_y)
             local anchor = frame.AnchorPoint
 
             frame.Position = dim_offset(
-                x - parent_position.X + size.X * anchor.X,
-                y - parent_position.Y + size.Y * anchor.Y
+                x - coordinate_origin.X + size.X * anchor.X,
+                y - coordinate_origin.Y + size.Y * anchor.Y
             )
             return x ~= position.X or y ~= position.Y
         end
@@ -438,22 +445,26 @@
                 if not viewport then return end
 
                 local parent = frame.Parent
-                local parent_position = vec2(0, 0)
-                local parent_size = viewport
+                local coordinate_origin = vec2(0, 0)
+                local bounds_position = vec2(0, 0)
+                local bounds_size = viewport
                 if parent and parent:IsA("GuiObject") then
-                    parent_position = parent.AbsolutePosition
-                    parent_size = parent.AbsoluteSize
+                    coordinate_origin = parent.AbsolutePosition
+                    bounds_position = parent.AbsolutePosition
+                    bounds_size = parent.AbsoluteSize
+                elseif parent and parent:IsA("ScreenGui") then
+                    coordinate_origin = vec2(0, -get_gui_offset())
                 end
 
                 local frame_size = frame.AbsoluteSize
                 local target = frame_start + delta
-                local x = clamp(target.X, parent_position.X, max(parent_position.X, parent_position.X + parent_size.X - frame_size.X))
-                local y = clamp(target.Y, parent_position.Y, max(parent_position.Y, parent_position.Y + parent_size.Y - frame_size.Y))
+                local x = clamp(target.X, bounds_position.X, max(bounds_position.X, bounds_position.X + bounds_size.X - frame_size.X))
+                local y = clamp(target.Y, bounds_position.Y, max(bounds_position.Y, bounds_position.Y + bounds_size.Y - frame_size.Y))
                 local anchor = frame.AnchorPoint
 
                 frame.Position = dim_offset(
-                    x - parent_position.X + frame_size.X * anchor.X,
-                    y - parent_position.Y + frame_size.Y * anchor.Y
+                    x - coordinate_origin.X + frame_size.X * anchor.X,
+                    y - coordinate_origin.Y + frame_size.Y * anchor.Y
                 )
                 library:close_element()
             end)
@@ -1388,7 +1399,7 @@
                     local current_position = mobile_button.Position
                     local x = clamp(absolute_position.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(absolute_position.Y, 0, max(0, viewport.Y - size.Y))
-                    local position_y = y
+                    local position_y = y + get_gui_offset()
                     if abs(x - current_position.X.Offset) > 1 or abs(position_y - current_position.Y.Offset) > 1 then
                         mobile_button.Position = dim_offset(x, position_y)
                     end
@@ -1529,7 +1540,7 @@
                     local size = mobile_button.AbsoluteSize
                     local x = clamp(button_start.X + delta.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(button_start.Y + delta.Y, 0, max(0, viewport.Y - size.Y))
-                    mobile_button.Position = dim_offset(x, y)
+                    mobile_button.Position = dim_offset(x, y + get_gui_offset())
                 end)
 
                 library:connection(uis.InputEnded, function(input)
