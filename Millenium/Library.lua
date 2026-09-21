@@ -6718,7 +6718,8 @@ do
         local boxes = base_groupboxes(self, properties)
         local left = boxes.left_column and boxes.left_column.items.column
         local right = boxes.right_column and boxes.right_column.items.column
-        local threshold = tonumber(properties.singleColumnWidth or properties.single_column_width) or 520
+        local threshold = tonumber(properties.singleColumnWidth or properties.single_column_width)
+            or (uis.TouchEnabled and 700 or 520)
         local responsive = properties.responsive ~= false
         local original_parents = {
             top_left = left;
