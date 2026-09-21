@@ -986,6 +986,8 @@
                 tween;
             }
             
+            library.active_window = cfg
+
             library[ "items" ] = library:create( "ScreenGui" , {
                 Parent = coregui;
                 Name = "\0";
@@ -6407,20 +6409,30 @@ do
 
     function library:CreateDrawer(options)
         options = options or {}
-        local _, viewport = mobile_view()
-        viewport = viewport or vec2(800, 600)
-        local height = min(tonumber(options.height) or 300, viewport.Y - 24)
+
+        local active_window = library.active_window
+        local window_root = active_window and active_window.items and active_window.items.main
+        local parent = window_root and window_root.Parent and window_root or library.items
+        local root_height = window_root and window_root.Size.Y.Offset or 500
+        local header_height = window_root and 46 or 0
+        local footer_height = window_root and 8 or 0
+        local available_height = max(110, root_height - header_height - footer_height)
+        local requested_height = tonumber(options.height) or 300
+        local height = clamp(requested_height, 110, available_height)
 
         local overlay = library:create("TextButton", {
-            Parent = library.items;
+            Parent = parent;
             Name = "MobileDrawerOverlay";
             Text = "";
             AutoButtonColor = false;
-            Size = dim2(1, 0, 1, 0);
+            Active = true;
+            Position = dim2(0, 0, 0, header_height);
+            Size = dim2(1, 0, 1, -(header_height + footer_height));
             BackgroundColor3 = rgb(0, 0, 0);
-            BackgroundTransparency = 0.35;
+            BackgroundTransparency = 0.28;
             BorderSizePixel = 0;
             Visible = false;
+            ClipsDescendants = true;
             ZIndex = 70;
         })
 
@@ -6431,20 +6443,28 @@ do
             Size = dim2(1, -24, 0, height);
             BackgroundColor3 = rgb(19, 19, 21);
             BorderSizePixel = 0;
+            ClipsDescendants = true;
             ZIndex = 71;
         })
-        library:create("UICorner", {Parent = drawer; CornerRadius = dim(0, 12)})
+        library:create("UICorner", {Parent = drawer; CornerRadius = dim(0, 10)})
+        library:create("UIStroke", {
+            Parent = drawer;
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+            Color = rgb(53, 53, 59);
+            Transparency = 0.3;
+            Thickness = 1;
+        })
 
         local title = library:create("TextLabel", {
             Parent = drawer;
             Text = options.title or "Options";
             Position = dim2(0, 14, 0, 0);
-            Size = dim2(1, -56, 0, 44);
+            Size = dim2(1, -56, 0, 40);
             BackgroundTransparency = 1;
             TextColor3 = rgb(245, 245, 245);
             TextXAlignment = Enum.TextXAlignment.Left;
             FontFace = fonts.font;
-            TextSize = 16;
+            TextSize = 15;
             BorderSizePixel = 0;
             ZIndex = 72;
         })
@@ -6453,56 +6473,100 @@ do
             Parent = drawer;
             Text = "×";
             AnchorPoint = vec2(1, 0);
-            Position = dim2(1, -10, 0, 8);
-            Size = dim2(0, 30, 0, 30);
-            BackgroundColor3 = rgb(33, 33, 35);
-            TextColor3 = rgb(235, 235, 235);
+            Position = dim2(1, -9, 0, 7);
+            Size = dim2(0, 27, 0, 27);
+            BackgroundColor3 = rgb(30, 30, 34);
+            TextColor3 = rgb(215, 215, 220);
             FontFace = fonts.font;
-            TextSize = 20;
+            TextSize = 18;
             BorderSizePixel = 0;
+            AutoButtonColor = false;
             ZIndex = 73;
         })
-        library:create("UICorner", {Parent = close; CornerRadius = dim(0, 7)})
+        library:create("UICorner", {Parent = close; CornerRadius = dim(0, 6)})
 
         local content = library:create("ScrollingFrame", {
             Parent = drawer;
-            Position = dim2(0, 10, 0, 48);
-            Size = dim2(1, -20, 1, -58);
+            Position = dim2(0, 10, 0, 42);
+            Size = dim2(1, -20, 1, -50);
             BackgroundTransparency = 1;
             BorderSizePixel = 0;
             AutomaticCanvasSize = Enum.AutomaticSize.Y;
             CanvasSize = dim2(0, 0, 0, 0);
             ScrollBarThickness = 3;
             ScrollBarImageColor3 = themes.preset.accent;
+            ScrollingDirection = Enum.ScrollingDirection.Y;
             ZIndex = 72;
         })
-        library:create("UIListLayout", {Parent = content; Padding = dim(0, 8); SortOrder = Enum.SortOrder.LayoutOrder})
-        library:create("UIPadding", {Parent = content; PaddingBottom = dim(0, 8)})
+        library:create("UIListLayout", {
+            Parent = content;
+            Padding = dim(0, 8);
+            SortOrder = Enum.SortOrder.LayoutOrder;
+        })
+        library:create("UIPadding", {
+            Parent = content;
+            PaddingBottom = dim(0, 8);
+            PaddingRight = dim(0, 4);
+        })
 
-        local api = {overlay = overlay, drawer = drawer, content = content, title = title}
+        local api = {
+            overlay = overlay;
+            drawer = drawer;
+            content = content;
+            title = title;
+            close_button = close;
+            window = active_window;
+            height = height;
+        }
+
+        function api:UpdateBounds()
+            if not overlay.Parent then return api end
+            local current_root = api.window and api.window.items and api.window.items.main
+            if current_root and current_root.Parent then
+                local current_height = current_root.Size.Y.Offset
+                local maximum = max(110, current_height - header_height - footer_height)
+                api.height = clamp(requested_height, 110, maximum)
+                drawer.Size = dim2(1, -24, 0, api.height)
+            end
+            return api
+        end
+
         function api:Open()
+            api:UpdateBounds()
             overlay.Visible = true
-            drawer.Position = dim2(0.5, 0, 1, height)
+            drawer.Position = dim2(0.5, 0, 1, api.height)
             library:tween(drawer, {Position = dim2(0.5, 0, 1, 0)}, Enum.EasingStyle.Quint, 0.22)
             return api
         end
+
         function api:Close()
-            library:tween(drawer, {Position = dim2(0.5, 0, 1, height)}, Enum.EasingStyle.Quint, 0.18)
+            library:tween(drawer, {Position = dim2(0.5, 0, 1, api.height)}, Enum.EasingStyle.Quint, 0.18)
             task.delay(0.19, function()
                 if overlay.Parent then overlay.Visible = false end
             end)
             return api
         end
+
         function api:Toggle()
             if overlay.Visible then return api:Close() end
             return api:Open()
         end
+
         function api:Destroy()
             if overlay.Parent then overlay:Destroy() end
         end
 
         library:connection(close.Activated, function() api:Close() end)
         library:connection(overlay.Activated, function() api:Close() end)
+
+        if window_root then
+            library:connection(window_root:GetPropertyChangedSignal("Size"), function()
+                task.defer(function()
+                    if overlay.Parent then api:UpdateBounds() end
+                end)
+            end)
+        end
+
         extension.drawers[#extension.drawers + 1] = api
         if options.build then options.build(content, api) end
         return api
