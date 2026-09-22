@@ -317,10 +317,6 @@
                     and (input == active_input or input == resize_input)
                 if not (is_mouse_drag or is_touch_drag) then return end
 
-                local current_camera = ws.CurrentCamera or camera
-                local viewport = current_camera and current_camera.ViewportSize
-                if not viewport then return end
-
                 local scale_object = frame:FindFirstChildOfClass("UIScale")
                 local ui_scale = scale_object and scale_object.Scale or 1
                 ui_scale = ui_scale > 0 and ui_scale or 1
@@ -349,14 +345,6 @@
                 end
             end)
 
-            local current_camera = ws.CurrentCamera or camera
-            if current_camera then
-                library:connection(current_camera:GetPropertyChangedSignal("ViewportSize"), function()
-                    task.defer(function()
-                        library:clamp_to_viewport(frame)
-                    end)
-                end)
-            end
         end
 
         function fag(tbl)
@@ -406,12 +394,10 @@
                 active_input = nil
                 drag_input = nil
                 moved = false
-                library:clamp_to_viewport(frame)
             end
 
             library:connection(frame.InputBegan, function(input)
                 if not is_press(input) then return end
-                library:clamp_to_viewport(frame)
                 dragging = true
                 active_input = input
                 drag_input = nil
@@ -446,25 +432,19 @@
 
                 local parent = frame.Parent
                 local coordinate_origin = vec2(0, 0)
-                local bounds_position = vec2(0, 0)
-                local bounds_size = viewport
                 if parent and parent:IsA("GuiObject") then
                     coordinate_origin = parent.AbsolutePosition
-                    bounds_position = parent.AbsolutePosition
-                    bounds_size = parent.AbsoluteSize
                 elseif parent and parent:IsA("ScreenGui") then
                     coordinate_origin = vec2(0, -get_gui_offset())
                 end
 
                 local frame_size = frame.AbsoluteSize
                 local target = frame_start + delta
-                local x = clamp(target.X, bounds_position.X, max(bounds_position.X, bounds_position.X + bounds_size.X - frame_size.X))
-                local y = clamp(target.Y, bounds_position.Y, max(bounds_position.Y, bounds_position.Y + bounds_size.Y - frame_size.Y))
                 local anchor = frame.AnchorPoint
 
                 frame.Position = dim_offset(
-                    x - coordinate_origin.X + frame_size.X * anchor.X,
-                    y - coordinate_origin.Y + frame_size.Y * anchor.Y
+                    target.X - coordinate_origin.X + frame_size.X * anchor.X,
+                    target.Y - coordinate_origin.Y + frame_size.Y * anchor.Y
                 )
                 library:close_element()
             end)
@@ -477,14 +457,6 @@
                 end
             end)
 
-            local current_camera = ws.CurrentCamera or camera
-            if current_camera then
-                library:connection(current_camera:GetPropertyChangedSignal("ViewportSize"), function()
-                    task.defer(function()
-                        library:clamp_to_viewport(frame)
-                    end)
-                end)
-            end
         end
 
         function library:convert(str)
@@ -753,7 +725,55 @@
             if new_path ~= open_element then 
                 library.current_open = new_path or nil;
             end
-        end 
+        end
+
+        function library:point_in_gui(gui, point)
+            if not gui or not gui.Parent or not point then
+                return false
+            end
+
+            local position = gui.AbsolutePosition
+            local size = gui.AbsoluteSize
+            return point.X >= position.X
+                and point.X <= position.X + size.X
+                and point.Y >= position.Y
+                and point.Y <= position.Y + size.Y
+        end
+
+        library:connection(uis.InputBegan, function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+
+            local open_element = library.current_open
+            if not open_element or not open_element.open then
+                return
+            end
+
+            local items = open_element.items
+            local inside_open_element = false
+            local regions = {
+                "dropdown_object",
+                "dropdown",
+                "dropdown_holder",
+                "colorpicker_object",
+                "colorpicker",
+                "colorpicker_holder"
+            }
+
+            for _, key in regions do
+                local region = items and items[key]
+                if region and library:point_in_gui(region, input.Position) then
+                    inside_open_element = true
+                    break
+                end
+            end
+
+            if not inside_open_element then
+                library:close_element()
+            end
+        end)
 
         function library:create(instance, options)
             local ins = Instance.new(instance) 
@@ -1032,8 +1052,8 @@
                     end
 
                     local absolute_size = items[ "main" ].AbsoluteSize
-                    local x = max(0, (viewport.X - absolute_size.X) / 2)
-                    local y = max(0, (viewport.Y - absolute_size.Y) / 2) + get_gui_offset()
+                    local x = (viewport.X - absolute_size.X) / 2
+                    local y = (viewport.Y - absolute_size.Y) / 2 + get_gui_offset()
                     items[ "main" ].Position = dim_offset(x, y)
                 end
 
