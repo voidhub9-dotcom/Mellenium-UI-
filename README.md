@@ -54,7 +54,7 @@ Useful window options:
 - \`autoMinimize\`: starts hidden below a resolution threshold.
 - \`mobileToggle\`: configures the floating reopen button.
 
-The floating button distinguishes taps from drags, stays clamped to the viewport, and supports a rounded square or circle. The main window and resize handle are also clamped to every viewport edge, including mobile safe-area offsets. Sliders, dropdowns, color controls, window dragging, resizing, drawers, and confirmation sheets use touch input.
+The floating button distinguishes taps from drags, stays clamped to the viewport, and supports a rounded square or circle. The main window and resize handle are also clamped to every viewport edge, including mobile safe-area offsets. Drawers and confirmation sheets stay inside the scaled window, leave the top drag strip available, and resize their scrolling content to fit. Sliders, dropdowns, color controls, window dragging, resizing, drawers, and confirmation sheets use touch input.
 
 ## Tabs, sub-tabs, and group boxes
 
