@@ -573,6 +573,9 @@
 
             if config_holder then
                 config_holder.refresh_options(list, sanitize_config_name(preferred))
+                if config_holder.empty_state and config_holder.empty_state.SetVisible then
+                    config_holder.empty_state:SetVisible(#list == 0)
+                end
             end
 
             return list
@@ -3515,6 +3518,8 @@
                 option_height = options.option_height or 31;
                 option_gap = options.option_gap or 4;
                 popup_padding = options.popup_padding or 8;
+                max_popup_height = options.max_popup_height or options.maxPopupHeight or 240;
+                multi_action_height = options.multi_action_height or 30;
 
                 -- Ignore these 
                 open = false;
@@ -3692,15 +3697,23 @@
                         ZIndex = 50;
                     });
                     
-                    items[ "outline" ] = library:create( "Frame" , {
+                    items[ "outline" ] = library:create( "ScrollingFrame" , {
                         Parent = items[ "dropdown_holder" ];
                         Size = dim2(1, 0, 1, 0);
                         ClipsDescendants = true;
+                        Active = true;
+                        ScrollingEnabled = true;
+                        ScrollingDirection = Enum.ScrollingDirection.Y;
+                        AutomaticCanvasSize = Enum.AutomaticSize.Y;
+                        CanvasSize = dim2(0, 0, 0, 0);
+                        ScrollBarThickness = 3;
+                        ScrollBarImageColor3 = rgb(66, 66, 72);
                         BorderColor3 = rgb(0, 0, 0);
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(19, 19, 22);
                         ZIndex = 50;
                     });
+                    library:apply_theme(items[ "outline" ], "accent", "ScrollBarImageColor3");
                     
                     library:create( "UIPadding" , {
                         PaddingBottom = dim(0, cfg.popup_padding);
@@ -3801,7 +3814,11 @@
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
                 local popup_width = trigger.AbsoluteSize.X > 0 and trigger.AbsoluteSize.X or cfg.width
-                local popup_height = cfg.open and cfg.y_size or 0
+                local popup_limit = cfg.max_popup_height
+                if viewport then
+                    popup_limit = min(popup_limit, max(96, viewport.Y - 28))
+                end
+                local popup_height = cfg.open and min(cfg.y_size, popup_limit) or 0
 
                 if viewport then
                     local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - popup_width - 6))
@@ -3851,8 +3868,20 @@
 
                 for _, option in cfg.option_instances do
                     local is_placeholder = option:GetAttribute("VoidHubPlaceholder") == true
-                    local is_selected = not is_placeholder
-                        and (option.Text == value or (isTable and find(value, option.Text)))
+                    local is_selected = false
+
+                    if not is_placeholder then
+                        if isTable then
+                            for _, wanted in value do
+                                if tostring(wanted) == option.Text then
+                                    is_selected = true
+                                    break
+                                end
+                            end
+                        else
+                            is_selected = tostring(value) == option.Text
+                        end
+                    end
 
                     if is_selected then
                         insert(selected, option.Text)
@@ -3930,6 +3959,10 @@
                     + (count * cfg.option_height)
                     + (max(0, count - 1) * cfg.option_gap)
 
+                if cfg.multi then
+                    cfg.y_size += cfg.multi_action_height + cfg.option_gap
+                end
+
                 if cfg.open then
                     cfg.set_visible(true)
                 end
@@ -3950,6 +3983,93 @@
                     BackgroundColor3 = rgb(36, 36, 37)
                 });
             end 
+
+            if cfg.multi then
+                function cfg.SelectAll()
+                    local values = {}
+                    for _, option in cfg.options do
+                        if option ~= nil and tostring(option) ~= "" then
+                            insert(values, option)
+                        end
+                    end
+                    cfg.set(values)
+                    return cfg
+                end
+
+                function cfg.Clear()
+                    cfg.set({})
+                    return cfg
+                end
+
+                cfg.select_all = cfg.SelectAll
+                cfg.clear = cfg.Clear
+
+                local actions = library:create("Frame", {
+                    Parent = items[ "outline" ];
+                    LayoutOrder = -100;
+                    Size = dim2(1, -(cfg.popup_padding * 2), 0, cfg.multi_action_height);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    ZIndex = 53;
+                })
+                items[ "multi_actions" ] = actions
+
+                local select_all = library:create("TextButton", {
+                    Parent = actions;
+                    Text = "Select all";
+                    AutoButtonColor = false;
+                    Size = dim2(0.5, -3, 1, 0);
+                    BackgroundColor3 = rgb(35, 35, 40);
+                    TextColor3 = rgb(205, 205, 212);
+                    FontFace = fonts.small;
+                    TextSize = 12;
+                    BorderSizePixel = 0;
+                    Selectable = false;
+                    ZIndex = 54;
+                })
+                local clear = library:create("TextButton", {
+                    Parent = actions;
+                    Text = "Clear";
+                    AutoButtonColor = false;
+                    Position = dim2(0.5, 3, 0, 0);
+                    Size = dim2(0.5, -3, 1, 0);
+                    BackgroundColor3 = rgb(35, 35, 40);
+                    TextColor3 = rgb(205, 205, 212);
+                    FontFace = fonts.small;
+                    TextSize = 12;
+                    BorderSizePixel = 0;
+                    Selectable = false;
+                    ZIndex = 54;
+                })
+
+                library:create("UICorner", {
+                    Parent = select_all;
+                    CornerRadius = dim(0, 5)
+                })
+                library:create("UICorner", {
+                    Parent = clear;
+                    CornerRadius = dim(0, 5)
+                })
+                library:create("UIStroke", {
+                    Parent = select_all;
+                    Color = rgb(65, 65, 73);
+                    Transparency = 0.2;
+                    Thickness = 1;
+                })
+                library:create("UIStroke", {
+                    Parent = clear;
+                    Color = rgb(65, 65, 73);
+                    Transparency = 0.2;
+                    Thickness = 1;
+                })
+
+                library:connection(select_all.Activated, function()
+                    cfg.SelectAll()
+                end)
+                library:connection(clear.Activated, function()
+                    cfg.Clear()
+                end)
+            end
 
             flags[cfg.flag] = {} 
             config_flags[cfg.flag] = cfg.set
@@ -5406,6 +5526,11 @@
             })
 
             local name_box
+            local empty_state = list_section:label({
+                name = "No saved configs";
+                info = "Save a config to create your first profile.";
+            })
+
             config_holder = list_section:list({
                 options = {},
                 flag = "config_name_list",
@@ -5415,6 +5540,8 @@
                     end
                 end
             })
+            config_holder.empty_state = empty_state
+            empty_state:SetVisible(#library:get_config_list() == 0)
 
             name_box = settings_section:textbox({
                 name = "Config name:",
@@ -6584,79 +6711,28 @@ do
     function library:multi_dropdown(options)
         options = copy_table(options)
         options.multi = true
+
         local control = self:dropdown(options)
         local all_options = options.items or {}
-
-        function control:SelectAll()
-            control.set(all_options)
-            return control
-        end
-
-        function control:Clear()
-            control.set({})
-            return control
-        end
 
         function control:SearchOptions(query)
             query = string.lower(tostring(query or ""))
             local filtered = {}
+
             for _, value in all_options do
                 if query == "" or string.find(string.lower(tostring(value)), query, 1, true) then
                     filtered[#filtered + 1] = value
                 end
             end
+
             control.refresh_options(filtered)
             return filtered
         end
 
-        local outline = control.items and control.items.outline
-        if outline then
-            local actions = library:create("Frame", {
-                Parent = outline;
-                LayoutOrder = -100;
-                Size = dim2(1, -6, 0, 28);
-                BackgroundTransparency = 1;
-                BorderSizePixel = 0;
-                ZIndex = 11;
-            })
-            local all = library:create("TextButton", {
-                Parent = actions;
-                Text = "All";
-                Size = dim2(0.5, -2, 1, 0);
-                BackgroundColor3 = rgb(42, 42, 45);
-                TextColor3 = rgb(220, 220, 220);
-                FontFace = fonts.small;
-                TextSize = 13;
-                BorderSizePixel = 0;
-                ZIndex = 12;
-            })
-            local clear = library:create("TextButton", {
-                Parent = actions;
-                Text = "Clear";
-                Position = dim2(0.5, 2, 0, 0);
-                Size = dim2(0.5, -2, 1, 0);
-                BackgroundColor3 = rgb(42, 42, 45);
-                TextColor3 = rgb(220, 220, 220);
-                FontFace = fonts.small;
-                TextSize = 13;
-                BorderSizePixel = 0;
-                ZIndex = 12;
-            })
-            library:create("UICorner", {Parent = all; CornerRadius = dim(0, 4)})
-            library:create("UICorner", {Parent = clear; CornerRadius = dim(0, 4)})
-            library:connection(all.Activated, function() control:SelectAll() end)
-            library:connection(clear.Activated, function() control:Clear() end)
-
-            local old_refresh = control.refresh_options
-            control.refresh_options = function(list)
-                old_refresh(list)
-                control.y_size += 34
-            end
-            control.y_size += 34
-        end
-
+        control.search_options = control.SearchOptions
         return control
     end
+
     library.MultiDropdown = library.multi_dropdown
 
     function library:CreateDrawer(options)
