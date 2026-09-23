@@ -379,6 +379,36 @@ Center:Refresh()
 Library:ClearNotificationHistory()
 ~~~
 
+## Discord webhooks
+
+The library supports executor HTTP request adapters for Discord incoming webhooks. It accepts `request`, `http_request`, `syn.request`, and `http.request` when the target environment exposes one.
+
+~~~lua
+Library:ConfigureWebhook({
+    url = "https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN",
+    username = "VoidHub",
+    minInterval = 1
+})
+
+Library:SendWebhook({
+    content = "Feature enabled",
+    embeds = {{
+        title = "VoidHub",
+        description = "A feature was enabled.",
+        color = 10158079
+    }}
+}, function(success, error_message)
+    if not success then
+        warn(error_message)
+    end
+end)
+
+Library:TestWebhook()
+Library:ClearWebhook()
+~~~
+
+Webhook messages are queued per library instance, use `allowed_mentions = {parse = {}}` by default, truncate content to Discord's 2,000-character limit, cap embeds at 10, and retry a Discord 429 once using its returned retry delay. Keep webhook URLs private because the URL contains the webhook token.
+
 ## Configuration system
 
 Create the built-in Configs page after all controls have been registered:
