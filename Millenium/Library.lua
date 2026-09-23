@@ -1479,7 +1479,17 @@
 
             if items[ "close" ] then
                 library:connection(items[ "close" ].Activated, function()
-                    cfg:close()
+                    library:Confirm({
+                        title = cfg.close_unloads and "Unload VoidHub UI?" or "Close VoidHub UI?";
+                        message = cfg.close_unloads
+                            and "This will unload the UI and remove its connections."
+                            or "The UI will be hidden and can be reopened with the mobile toggle.";
+                        confirmText = cfg.close_unloads and "Unload" or "Close";
+                        cancelText = "Cancel";
+                        callback = function()
+                            cfg:close()
+                        end;
+                    })
                 end)
 
                 library:connection(items[ "close" ].MouseEnter, function()
