@@ -6089,9 +6089,17 @@ do
     end
 
     local function valid_webhook_url(url)
-        return type(url) == "string"
-            and #url <= 512
-            and string.match(url, "^https://discord(app)?%.com/api/webhooks/[0-9]+/[%w%-%._~]+")
+        if type(url) ~= "string" or #url > 512 then
+            return false
+        end
+
+        local valid_host = string.match(url, "^https://discord%.com/api/webhooks/")
+            or string.match(url, "^https://discordapp%.com/api/webhooks/")
+        if not valid_host then
+            return false
+        end
+
+        return string.match(url, "^https://[^/]+/api/webhooks/[0-9]+/[%w%-%._~]+$") ~= nil
     end
 
     local function copy_webhook_payload(payload)
