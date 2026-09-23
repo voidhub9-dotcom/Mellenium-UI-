@@ -69,6 +69,24 @@
 -- 
 
 -- Library init
+    do
+        local previous_ui = getgenv().VoidHubUI
+        if type(previous_ui) == "table" and type(previous_ui.library) == "table" then
+            local previous_library = previous_ui.library
+            local previous_unload = previous_library.Unload
+                or previous_library.unload
+                or previous_library.unload_menu
+
+            if type(previous_unload) == "function" then
+                pcall(function()
+                    previous_unload(previous_library)
+                end)
+            end
+
+            getgenv().VoidHubUI = nil
+        end
+    end
+
     getgenv().library = {
         directory = "milenium",
         folders = {
@@ -79,7 +97,8 @@
         config_flags = {},
         connections = {},   
         notifications = {notifs = {}},
-        current_open; 
+        current_open;
+        __voidhub_ui = true;
     }
 
     local themes = {
@@ -798,12 +817,15 @@
                 library[ "mobile_toggle" ]:Destroy()
             end
 
-            for index, connection in library.connections do 
-                connection:Disconnect() 
-                connection = nil 
+            for _, connection in library.connections do
+                pcall(function()
+                    connection:Disconnect()
+                end)
             end
             
-            library = nil 
+            table.clear(library.connections)
+            library.current_open = nil
+            library.active_window = nil
         end 
     --
     
@@ -908,6 +930,28 @@
 
             local mobile_transparency = clamp(tonumber(mobile_options.transparency or mobile_options.Transparency) or 0.05, 0, 1)
 
+            local close_button_enabled = properties.close_button
+            if close_button_enabled == nil then
+                close_button_enabled = properties.closeButton
+            end
+            if close_button_enabled == nil then
+                close_button_enabled = properties.showCloseButton
+            end
+            if close_button_enabled == nil then
+                close_button_enabled = true
+            end
+
+            local close_mode = string.lower(tostring(
+                properties.close_mode
+                    or properties.closeMode
+                    or properties.close_behavior
+                    or properties.closeBehavior
+                    or "hide"
+            ))
+            local close_unloads = properties.unload_on_close == true
+                or properties.unloadOnClose == true
+                or close_mode == "unload"
+
             local default_width = 700
             local default_height = 565
             local requested_size = properties.custom_size or properties.customSize or properties.CustomSize or properties.size or properties.Size
@@ -995,6 +1039,8 @@
                 mobile_toggle_background = mobile_background;
                 mobile_toggle_image_color = mobile_image_color;
                 mobile_toggle_transparency = mobile_transparency;
+                close_button_enabled = close_button_enabled == true;
+                close_unloads = close_unloads == true;
                 dpi_scale = dpi_scale;
                 dpi_min = lower_dpi;
                 dpi_max = upper_dpi;
@@ -1039,6 +1085,39 @@
                     Parent = items[ "main" ];
                     Scale = 1
                 });
+
+                if cfg.close_button_enabled then
+                    items[ "close" ] = library:create( "TextButton" , {
+                        Parent = items[ "main" ];
+                        Name = "VoidHubCloseButton";
+                        AnchorPoint = vec2(1, 0);
+                        Position = dim2(1, -10, 0, 10);
+                        Size = dim2(0, 34, 0, 34);
+                        AutoButtonColor = false;
+                        BackgroundColor3 = rgb(27, 27, 30);
+                        BackgroundTransparency = 0.05;
+                        BorderSizePixel = 0;
+                        Text = "×";
+                        TextColor3 = rgb(235, 235, 240);
+                        FontFace = fonts.font;
+                        TextSize = 22;
+                        ZIndex = 30;
+                        Selectable = false;
+                    });
+
+                    library:create( "UICorner" , {
+                        Parent = items[ "close" ];
+                        CornerRadius = dim(0, 9)
+                    });
+
+                    library:create( "UIStroke" , {
+                        Parent = items[ "close" ];
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(75, 75, 82);
+                        Transparency = 0.15;
+                        Thickness = 1
+                    });
+                end
 
                 local function center_main()
                     if not items[ "main" ] or not items[ "main" ].Parent then
@@ -1388,6 +1467,32 @@
                 if cfg.update_mobile_toggle then
                     cfg:update_mobile_toggle()
                 end
+            end
+
+            function cfg:close(unload)
+                if unload == true or self.close_unloads then
+                    return library:Unload()
+                end
+
+                return self.toggle_menu(false)
+            end
+
+            if items[ "close" ] then
+                library:connection(items[ "close" ].Activated, function()
+                    cfg:close()
+                end)
+
+                library:connection(items[ "close" ].MouseEnter, function()
+                    library:tween(items[ "close" ], {
+                        BackgroundColor3 = rgb(43, 43, 48)
+                    }, Enum.EasingStyle.Quad, 0.12)
+                end)
+
+                library:connection(items[ "close" ].MouseLeave, function()
+                    library:tween(items[ "close" ], {
+                        BackgroundColor3 = rgb(27, 27, 30)
+                    }, Enum.EasingStyle.Quad, 0.12)
+                end)
             end
 
             function cfg:update_mobile_toggle()
@@ -7166,28 +7271,48 @@ do
     library.group_boxes = library.groupboxes
 
     function library:unload()
-        if extension.unloading then return true end
+        if extension.unloading then
+            return true
+        end
+
         extension.unloading = true
         extension.auto_save_token += 1
+        library.current_open = nil
 
         for name, plugin in extension.plugins do
             if plugin.loaded then
-                pcall(function() library:UnloadPlugin(name) end)
+                pcall(function()
+                    library:UnloadPlugin(name)
+                end)
             end
         end
 
         for _, connection in library.connections do
-            pcall(function() connection:Disconnect() end)
+            pcall(function()
+                connection:Disconnect()
+            end)
         end
         table.clear(library.connections)
 
         for _, key in {"items", "other", "mobile_toggle"} do
             local instance = library[key]
             if typeof(instance) == "Instance" then
-                pcall(function() instance:Destroy() end)
+                pcall(function()
+                    instance:Destroy()
+                end)
             end
             library[key] = nil
         end
+
+        table.clear(extension.controls)
+        table.clear(extension.keybinds)
+        table.clear(extension.drawers)
+        table.clear(extension.notification_history)
+        table.clear(library.notifications.notifs)
+        table.clear(extension.plugins)
+
+        library.active_window = nil
+        library.mobile_toggle_button = nil
 
         local environment = getgenv()
         local current_library = library
@@ -7197,6 +7322,7 @@ do
         if environment.library == current_library then
             environment.library = nil
         end
+
         return true
     end
     library.unload_menu = library.unload
