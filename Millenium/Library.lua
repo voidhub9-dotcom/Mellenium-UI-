@@ -1426,24 +1426,8 @@
                     BackgroundColor3 = rgb(255, 255, 255)
                 }); 
                 
-                items[ "other_info" ] = library:create( "TextLabel" , {
-                    Parent = items[ "info" ];
-                    RichText = true;
-                    Name = "\0";
-                    TextColor3 = themes.preset.accent;
-                    BorderColor3 = rgb(0, 0, 0);
-                    Text = '<font color="rgb(72, 72, 73)">32 days left, </font>' .. cfg.name .. cfg.suffix;
-                    Size = dim2(1, 0, 0, 0);
-                    Position = dim2(0, -10, 0.5, -1);
-                    AnchorPoint = vec2(0, 0.5);
-                    BorderSizePixel = 0;
-                    BackgroundTransparency = 1;
-                    TextXAlignment = Enum.TextXAlignment.Right;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    FontFace = fonts.font;
-                    TextSize = 14;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                }); library:apply_theme(items[ "other_info" ], "accent", "TextColor3");        
+                -- Removed subscription/countdown footer.
+ library:apply_theme(items[ "other_info" ], "accent", "TextColor3");        
             end 
 
             do -- Other
@@ -3519,7 +3503,7 @@
                 option_gap = options.option_gap or 4;
                 popup_padding = options.popup_padding or 8;
                 max_popup_height = options.max_popup_height or options.maxPopupHeight or 240;
-                multi_action_height = options.multi_action_height or 30;
+                multi_action_height = options.multi_action_height or 26;
 
                 -- Ignore these 
                 open = false;
@@ -4024,13 +4008,14 @@
 
                 local select_all = library:create("TextButton", {
                     Parent = actions;
-                    Text = "Select all";
+                    Text = cfg.width < 170 and "All" or "Select all";
                     AutoButtonColor = false;
                     Size = dim2(0.5, -3, 1, 0);
                     BackgroundColor3 = rgb(35, 35, 40);
                     TextColor3 = rgb(205, 205, 212);
                     FontFace = fonts.small;
-                    TextSize = 12;
+                    TextSize = cfg.width < 170 and 11 or 12;
+                    TextTruncate = Enum.TextTruncate.AtEnd;
                     BorderSizePixel = 0;
                     Selectable = false;
                     ZIndex = 54;
@@ -4044,7 +4029,8 @@
                     BackgroundColor3 = rgb(35, 35, 40);
                     TextColor3 = rgb(205, 205, 212);
                     FontFace = fonts.small;
-                    TextSize = 12;
+                    TextSize = cfg.width < 170 and 11 or 12;
+                    TextTruncate = Enum.TextTruncate.AtEnd;
                     BorderSizePixel = 0;
                     Selectable = false;
                     ZIndex = 54;
