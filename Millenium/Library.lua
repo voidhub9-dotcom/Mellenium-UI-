@@ -3504,6 +3504,8 @@
                 popup_padding = options.popup_padding or 8;
                 max_popup_height = options.max_popup_height or options.maxPopupHeight or 240;
                 multi_action_height = options.multi_action_height or 26;
+                open_token = 0;
+                selection_lock = false;
 
                 -- Ignore these 
                 open = false;
@@ -3795,61 +3797,75 @@
             end
 
             function cfg.set_visible(bool)
-                cfg.open = bool == true
-                cfg.update_visual()
-
+                cfg.open_token += 1
+                local token = cfg.open_token
+                local should_open = bool == true
                 local trigger = items[ "dropdown" ]
+                local holder = items[ "dropdown_holder" ]
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
                 local popup_width = trigger.AbsoluteSize.X > 0 and trigger.AbsoluteSize.X or cfg.width
                 local popup_limit = cfg.max_popup_height
+
                 if viewport then
                     popup_limit = min(popup_limit, max(96, viewport.Y - 28))
                 end
-                local popup_height = cfg.open and min(cfg.y_size, popup_limit) or 0
 
-                if viewport then
-                    local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - popup_width - 6))
-                    local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 7
+                local popup_height = should_open and min(cfg.y_size, popup_limit) or 0
 
-                    if y + popup_height > viewport.Y - 7 then
-                        y = trigger.AbsolutePosition.Y - popup_height - 7
+                if should_open then
+                    local previous = library.current_open
+                    if previous and previous ~= cfg and previous.set_visible then
+                        previous.set_visible(false)
                     end
 
-                    y = clamp(y, 6, max(6, viewport.Y - popup_height - 6))
-                    items[ "dropdown_holder" ].Position = dim_offset(x, y + get_gui_offset())
-                end
+                    cfg.open = true
+                    cfg.update_visual()
+                    holder.Visible = true
+                    holder.Size = dim_offset(popup_width, popup_height)
 
-                if cfg.open then
-                    items[ "dropdown_holder" ].Visible = true
-                    items[ "dropdown_holder" ].Size = dim_offset(popup_width, 0)
+                    if viewport then
+                        local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - popup_width - 6))
+                        local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 7
+
+                        if y + popup_height > viewport.Y - 7 then
+                            y = trigger.AbsolutePosition.Y - popup_height - 7
+                        end
+
+                        y = clamp(y, 6, max(6, viewport.Y - popup_height - 6))
+                        holder.Position = dim_offset(x, y + get_gui_offset())
+                    end
+
+                    library.current_open = cfg
                     library:tween(
-                        items[ "dropdown_holder" ],
+                        holder,
                         {Size = dim_offset(popup_width, popup_height)},
                         Enum.EasingStyle.Quad,
                         0.14
                     )
-                    library:close_element(cfg)
                 else
+                    cfg.open = false
+                    cfg.update_visual()
+
+                    if library.current_open == cfg then
+                        library.current_open = nil
+                    end
+
                     library:tween(
-                        items[ "dropdown_holder" ],
+                        holder,
                         {Size = dim_offset(popup_width, 0)},
                         Enum.EasingStyle.Quad,
                         0.1
                     )
 
-                    task.delay(0.11, function()
-                        if items[ "dropdown_holder" ].Parent and not cfg.open then
-                            items[ "dropdown_holder" ].Visible = false
+                    task.delay(0.12, function()
+                        if holder.Parent and not cfg.open and cfg.open_token == token then
+                            holder.Visible = false
                         end
                     end)
-
-                    if library.current_open == cfg then
-                        library.current_open = nil
-                    end
                 end
             end
-            
+
             function cfg.set(value)
                 local selected = {}
                 local isTable = type(value) == "table"
@@ -3914,10 +3930,11 @@
                         insert(cfg.option_instances, button)
 
                         button.Activated:Connect(function()
-                            if button:GetAttribute("VoidHubPlaceholder") == true then
+                            if button:GetAttribute("VoidHubPlaceholder") == true or cfg.selection_lock then
                                 return
                             end
 
+                            cfg.selection_lock = true
                             if cfg.multi then
                                 cfg.multi_items = cfg.multi_items or {}
                                 local selected_index = find(cfg.multi_items, button.Text)
@@ -3933,6 +3950,10 @@
                                 cfg.set(button.Text)
                                 cfg.set_visible(false)
                             end
+
+                            task.defer(function()
+                                cfg.selection_lock = false
+                            end)
                         end)
                     end
                 end
@@ -6042,6 +6063,236 @@ do
         return result
     end
 
+    local webhook_state = {
+        url = nil;
+        enabled = false;
+        username = "VoidHub";
+        avatar_url = nil;
+        min_interval = 1.0;
+        max_queue = 20;
+        last_sent = 0;
+        queue = {};
+        busy = false;
+        last_error = nil;
+    }
+
+    local function get_request_function()
+        local environment = getgenv and getgenv() or _G
+        local syn_table = environment and environment.syn
+        local http_table = environment and environment.http
+
+        return (environment and (environment.request or environment.http_request))
+            or (syn_table and syn_table.request)
+            or (http_table and http_table.request)
+            or request
+            or http_request
+    end
+
+    local function valid_webhook_url(url)
+        return type(url) == "string"
+            and #url <= 512
+            and string.match(url, "^https://discord(app)?%.com/api/webhooks/[0-9]+/[%w%-%._~]+")
+    end
+
+    local function copy_webhook_payload(payload)
+        if type(payload) == "string" then
+            payload = {content = payload}
+        end
+        if type(payload) ~= "table" then
+            return nil, "Payload must be a string or table"
+        end
+
+        local result = copy_table(payload)
+        if result.content ~= nil then
+            result.content = string.sub(tostring(result.content), 1, 2000)
+        end
+        if result.embeds and type(result.embeds) == "table" then
+            local embeds = {}
+            for index, embed in result.embeds do
+                if index > 10 then break end
+                if type(embed) == "table" then
+                    embeds[#embeds + 1] = copy_table(embed)
+                end
+            end
+            result.embeds = embeds
+        end
+
+        -- Prevent accidental @everyone/@here/user-role mentions from feature text.
+        if result.allowed_mentions == nil then
+            result.allowed_mentions = {parse = {}}
+        end
+
+        if not result.content
+            and (not result.embeds or #result.embeds == 0)
+            and not result.components
+            and not result.poll then
+            return nil, "Payload needs content, embeds, components, or poll"
+        end
+
+        return result
+    end
+
+    local function request_webhook(url, payload)
+        local request_function = get_request_function()
+        if type(request_function) ~= "function" then
+            return false, "No supported HTTP request function was found"
+        end
+
+        local ok, response = pcall(request_function, {
+            Url = url .. (string.find(url, "?", 1, true) and "&" or "?") .. "wait=false";
+            Method = "POST";
+            Headers = {
+                ["Content-Type"] = "application/json";
+                ["Accept"] = "application/json";
+            };
+            Body = http_service:JSONEncode(payload);
+        })
+
+        if not ok then
+            return false, tostring(response)
+        end
+
+        local status = tonumber(response and (response.StatusCode or response.status_code or response.Status))
+        if status and status >= 200 and status < 300 then
+            return true
+        end
+
+        local response_body = response and (response.Body or response.body or response.ResponseBody)
+        local detail = response_body and tostring(response_body) or ("HTTP " .. tostring(status or "unknown"))
+        local retry_after
+
+        if status == 429 and response_body then
+            local parsed = pcall(function()
+                local decoded = http_service:JSONDecode(response_body)
+                retry_after = tonumber(decoded.retry_after)
+            end)
+            if parsed and retry_after then
+                detail = "Rate limited; retry after " .. tostring(retry_after) .. "s"
+            end
+        end
+
+        return false, detail, retry_after
+    end
+
+    local function pump_webhooks()
+        if webhook_state.busy then return end
+        webhook_state.busy = true
+
+        task.spawn(function()
+            while #webhook_state.queue > 0 and not extension.unloading do
+                local wait_for = webhook_state.min_interval - (os.clock() - webhook_state.last_sent)
+                if wait_for > 0 then
+                    task.wait(wait_for)
+                end
+
+                local job = table.remove(webhook_state.queue, 1)
+                local sent, err, retry_after = request_webhook(webhook_state.url, job.payload)
+
+                if not sent and retry_after then
+                    task.wait(math.min(retry_after, 30))
+                    sent, err = request_webhook(webhook_state.url, job.payload)
+                end
+
+                webhook_state.last_sent = os.clock()
+                webhook_state.last_error = sent and nil or err
+
+                if job.callback then
+                    pcall(job.callback, sent, err)
+                end
+            end
+
+            webhook_state.busy = false
+        end)
+    end
+
+    function library:ConfigureWebhook(options)
+        options = options or {}
+        local url = options.url or options.URL or options.webhook_url or options.webhookUrl
+
+        if url ~= nil then
+            if url == "" then
+                webhook_state.url = nil
+                webhook_state.enabled = false
+            elseif not valid_webhook_url(url) then
+                return false, "Invalid Discord webhook URL"
+            else
+                webhook_state.url = url
+                webhook_state.enabled = options.enabled ~= false
+            end
+        elseif options.enabled ~= nil then
+            webhook_state.enabled = options.enabled == true
+        end
+
+        webhook_state.username = tostring(options.username or options.Username or webhook_state.username)
+        webhook_state.avatar_url = options.avatar_url or options.avatarUrl or webhook_state.avatar_url
+        webhook_state.min_interval = max(0.5, tonumber(options.min_interval or options.minInterval) or webhook_state.min_interval)
+        webhook_state.max_queue = max(1, floor(tonumber(options.max_queue or options.maxQueue) or webhook_state.max_queue))
+        return true
+    end
+
+    function library:SetWebhook(url, options)
+        options = options or {}
+        options.url = url
+        return library:ConfigureWebhook(options)
+    end
+
+    function library:ClearWebhook()
+        webhook_state.url = nil
+        webhook_state.enabled = false
+        table.clear(webhook_state.queue)
+        webhook_state.last_error = nil
+        return true
+    end
+
+    function library:GetWebhookStatus()
+        return {
+            configured = webhook_state.url ~= nil;
+            enabled = webhook_state.enabled;
+            queued = #webhook_state.queue;
+            busy = webhook_state.busy;
+            last_error = webhook_state.last_error;
+        }
+    end
+
+    function library:SendWebhook(payload, callback)
+        if not webhook_state.enabled or not webhook_state.url then
+            return false, "Discord webhook is not configured"
+        end
+
+        local normalized, payload_error = copy_webhook_payload(payload)
+        if not normalized then
+            return false, payload_error
+        end
+
+        if normalized.username == nil and webhook_state.username ~= "" then
+            normalized.username = webhook_state.username
+        end
+        if normalized.avatar_url == nil and webhook_state.avatar_url then
+            normalized.avatar_url = webhook_state.avatar_url
+        end
+
+        if #webhook_state.queue >= webhook_state.max_queue then
+            return false, "Discord webhook queue is full"
+        end
+
+        webhook_state.queue[#webhook_state.queue + 1] = {
+            payload = normalized;
+            callback = callback;
+        }
+        pump_webhooks()
+        return true
+    end
+
+    function library:SendDiscordWebhook(payload, callback)
+        return library:SendWebhook(payload, callback)
+    end
+
+    function library:TestWebhook(callback)
+        return library:SendWebhook({
+            content = "VoidHub UI webhook test";
+        }, callback)
+    end
+
     local function mobile_view()
         local current_camera = ws.CurrentCamera or camera
         local viewport = current_camera and current_camera.ViewportSize
@@ -7505,6 +7756,9 @@ do
         table.clear(extension.keybinds)
         table.clear(extension.drawers)
         table.clear(extension.notification_history)
+        table.clear(webhook_state.queue)
+        webhook_state.url = nil
+        webhook_state.enabled = false
         table.clear(library.notifications.notifs)
         table.clear(extension.plugins)
 
