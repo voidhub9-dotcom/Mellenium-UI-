@@ -3508,7 +3508,7 @@
                 name = options.name or nil;
                 info = options.info or nil;
                 flag = options.flag or library:next_flag();
-                options = options.items or {""};
+                options = options.items or options.options or options.values or {""};
                 callback = options.callback or function() end;
                 multi = options.multi or false;
                 scrolling = options.scrolling or false;
@@ -3659,7 +3659,8 @@
                         TextTruncate = Enum.TextTruncate.AtEnd;
                         AutomaticSize = Enum.AutomaticSize.None;
                         TextSize = 13;
-                        BackgroundColor3 = rgb(255, 255, 255)
+                        BackgroundColor3 = rgb(255, 255, 255);
+                        ZIndex = 3
                     });
                     
                     library:create( "UIPadding" , {
@@ -3680,7 +3681,8 @@
                         Name = "\0";
                         Size = dim2(0, 12, 0, 12);
                         BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
+                        BackgroundColor3 = rgb(255, 255, 255);
+                        ZIndex = 3
                     });
                 -- 
 
@@ -3798,11 +3800,13 @@
                     items[ "dropdown_stroke" ].Color = themes.preset.accent
                     items[ "dropdown_stroke" ].Transparency = 0
                     items[ "indicator" ].Rotation = 180
+                    items[ "indicator" ].ImageColor3 = themes.preset.accent
                 else
                     items[ "dropdown" ].BackgroundColor3 = rgb(27, 27, 30)
                     items[ "dropdown_stroke" ].Color = rgb(62, 62, 72)
                     items[ "dropdown_stroke" ].Transparency = 0.18
                     items[ "indicator" ].Rotation = 0
+                    items[ "indicator" ].ImageColor3 = rgb(125, 125, 135)
                 end
             end
 
@@ -3900,6 +3904,10 @@
                 end
 
                 items[ "sub_text" ].Text = display
+                items[ "sub_text" ].TextColor3 =
+                    (display == "Select..." or display == "None selected")
+                    and rgb(135, 135, 145)
+                    or rgb(220, 220, 228)
                 flags[cfg.flag] = isTable and selected or selected[1] or value
 
                 cfg.callback(flags[cfg.flag])
