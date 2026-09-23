@@ -3511,6 +3511,10 @@
                 scrolling = options.scrolling or false;
 
                 width = options.width or 130;
+                height = options.height or 30;
+                option_height = options.option_height or 31;
+                option_gap = options.option_gap or 4;
+                popup_padding = options.popup_padding or 8;
 
                 -- Ignore these 
                 open = false;
@@ -3522,7 +3526,7 @@
                 seperator = options.seperator or options.Seperator or true;
             }   
 
-            cfg.default = options.default or (cfg.multi and {cfg.items[1]}) or cfg.items[1] or "None"
+            cfg.default = options.default or (cfg.multi and (#cfg.options > 0 and {cfg.options[1]} or {})) or cfg.options[1] or "None"
             flags[cfg.flag] = cfg.default
 
             local items = cfg.items; do 
@@ -3615,22 +3619,31 @@
                         Parent = items[ "right_components" ];
                         Name = "\0";
                         Position = dim2(1, 0, 0, 0);
-                        Size = dim2(0, cfg.width, 0, 25);
+                        Size = dim2(0, cfg.width, 0, cfg.height);
                         BorderSizePixel = 0;
                         TextSize = 14;
-                        BackgroundColor3 = rgb(33, 33, 35)
+                        BackgroundColor3 = rgb(27, 27, 30);
+                        ZIndex = 2
                     });
                     
                     library:create( "UICorner" , {
                         Parent = items[ "dropdown" ];
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 6)
+                    });
+
+                    items[ "dropdown_stroke" ] = library:create( "UIStroke" , {
+                        Parent = items[ "dropdown" ];
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(62, 62, 72);
+                        Transparency = 0.18;
+                        Thickness = 1
                     });
                     
                     items[ "sub_text" ] = library:create( "TextLabel" , {
                         FontFace = fonts.small;
                         TextColor3 = rgb(86, 86, 87);
                         BorderColor3 = rgb(0, 0, 0);
-                        Text = "awdawdawdawdawdawdawdaw";
+                        Text = "Select...";
                         Parent = items[ "dropdown" ];
                         Name = "\0";
                         Size = dim2(1, -28, 1, 0);
@@ -3671,12 +3684,12 @@
                         BorderColor3 = rgb(0, 0, 0);
                         Parent = library[ "items" ];
                         Name = "\0";
-                        Visible = true;
+                        Visible = false;
                         BackgroundTransparency = 1;
                         Size = dim2(0, 0, 0, 0);
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(0, 0, 0);
-                        ZIndex = 10;
+                        ZIndex = 50;
                     });
                     
                     items[ "outline" ] = library:create( "Frame" , {
@@ -3685,26 +3698,35 @@
                         ClipsDescendants = true;
                         BorderColor3 = rgb(0, 0, 0);
                         BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(33, 33, 35);
-                        ZIndex = 10;
+                        BackgroundColor3 = rgb(19, 19, 22);
+                        ZIndex = 50;
                     });
                     
                     library:create( "UIPadding" , {
-                        PaddingBottom = dim(0, 6);
-                        PaddingTop = dim(0, 3);
-                        PaddingLeft = dim(0, 3);
+                        PaddingBottom = dim(0, cfg.popup_padding);
+                        PaddingTop = dim(0, cfg.popup_padding);
+                        PaddingLeft = dim(0, cfg.popup_padding);
+                        PaddingRight = dim(0, cfg.popup_padding);
                         Parent = items[ "outline" ]
                     });
                     
                     library:create( "UIListLayout" , {
                         Parent = items[ "outline" ];
-                        Padding = dim(0, 5);
+                        Padding = dim(0, cfg.option_gap);
                         SortOrder = Enum.SortOrder.LayoutOrder
                     });
                     
                     library:create( "UICorner" , {
                         Parent = items[ "outline" ];
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 7)
+                    });
+
+                    items[ "outline_stroke" ] = library:create( "UIStroke" , {
+                        Parent = items[ "outline" ];
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(62, 62, 72);
+                        Transparency = 0.12;
+                        Thickness = 1
                     });
                 -- 
             end 
@@ -3712,52 +3734,114 @@
             function cfg.render_option(text)
                 local button = library:create( "TextButton" , {
                     FontFace = fonts.small;
-                    TextColor3 = rgb(72, 72, 73);
+                    TextColor3 = rgb(205, 205, 212);
                     BorderColor3 = rgb(0, 0, 0);
-                    Text = text;
+                    Text = tostring(text);
                     Parent = items[ "outline" ];
                     Name = "\0";
-                    Size = dim2(1, -12, 0, 30);
+                    Size = dim2(1, -(cfg.popup_padding * 2), 0, cfg.option_height);
                     BackgroundTransparency = 1;
                     TextXAlignment = Enum.TextXAlignment.Left;
                     TextYAlignment = Enum.TextYAlignment.Center;
                     BorderSizePixel = 0;
                     AutomaticSize = Enum.AutomaticSize.None;
                     TextSize = 13;
-                    BackgroundColor3 = rgb(255, 255, 255);
-                    ZIndex = 10;
+                    BackgroundColor3 = rgb(56, 56, 65);
+                    AutoButtonColor = false;
+                    Selectable = false;
+                    ZIndex = 52;
                 }); library:apply_theme(button, "accent", "TextColor3");
                 
+                library:create( "UICorner" , {
+                    Parent = button;
+                    CornerRadius = dim(0, 5)
+                });
+
                 library:create( "UIPadding" , {
                     Parent = button;
-                    PaddingTop = dim(0, 7);
-                    PaddingBottom = dim(0, 7);
-                    PaddingRight = dim(0, 5);
-                    PaddingLeft = dim(0, 5)
+                    PaddingRight = dim(0, 7);
+                    PaddingLeft = dim(0, 8)
                 });
+
+                button.MouseEnter:Connect(function()
+                    if button:GetAttribute("VoidHubSelected") ~= true
+                        and button:GetAttribute("VoidHubPlaceholder") ~= true then
+                        button.BackgroundTransparency = 0.84
+                    end
+                end)
+
+                button.MouseLeave:Connect(function()
+                    if button:GetAttribute("VoidHubSelected") ~= true then
+                        button.BackgroundTransparency = 1
+                    end
+                end)
                 
                 return button
             end
             
-            function cfg.set_visible(bool)
-                local a = bool and cfg.y_size or 0
-                library:tween(items[ "dropdown_holder" ], {Size = dim_offset(items[ "dropdown" ].AbsoluteSize.X, a)})
+            function cfg.update_visual()
+                if cfg.open then
+                    items[ "dropdown" ].BackgroundColor3 = rgb(35, 35, 40)
+                    items[ "dropdown_stroke" ].Color = themes.preset.accent
+                    items[ "dropdown_stroke" ].Transparency = 0
+                    items[ "indicator" ].Rotation = 180
+                else
+                    items[ "dropdown" ].BackgroundColor3 = rgb(27, 27, 30)
+                    items[ "dropdown_stroke" ].Color = rgb(62, 62, 72)
+                    items[ "dropdown_stroke" ].Transparency = 0.18
+                    items[ "indicator" ].Rotation = 0
+                end
+            end
 
+            function cfg.set_visible(bool)
+                cfg.open = bool == true
+                cfg.update_visual()
+
+                local trigger = items[ "dropdown" ]
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
+                local popup_width = trigger.AbsoluteSize.X > 0 and trigger.AbsoluteSize.X or cfg.width
+                local popup_height = cfg.open and cfg.y_size or 0
+
                 if viewport then
-                    local trigger = items[ "dropdown" ]
-                    local holder_size = vec2(trigger.AbsoluteSize.X, bool and cfg.y_size or 0)
-                    local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - holder_size.X - 6))
-                    local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 8
-                    if y + holder_size.Y > viewport.Y - 6 then
-                        y = trigger.AbsolutePosition.Y - holder_size.Y - 8
+                    local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - popup_width - 6))
+                    local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 7
+
+                    if y + popup_height > viewport.Y - 7 then
+                        y = trigger.AbsolutePosition.Y - popup_height - 7
                     end
-                    y = clamp(y, 6, max(6, viewport.Y - holder_size.Y - 6))
-                    items[ "dropdown_holder" ].Position = dim_offset(x, y)
+
+                    y = clamp(y, 6, max(6, viewport.Y - popup_height - 6))
+                    items[ "dropdown_holder" ].Position = dim_offset(x, y + get_gui_offset())
                 end
-                if not (self.sanity and library.current_open == self) then 
+
+                if cfg.open then
+                    items[ "dropdown_holder" ].Visible = true
+                    items[ "dropdown_holder" ].Size = dim_offset(popup_width, 0)
+                    library:tween(
+                        items[ "dropdown_holder" ],
+                        {Size = dim_offset(popup_width, popup_height)},
+                        Enum.EasingStyle.Quad,
+                        0.14
+                    )
                     library:close_element(cfg)
+                else
+                    library:tween(
+                        items[ "dropdown_holder" ],
+                        {Size = dim_offset(popup_width, 0)},
+                        Enum.EasingStyle.Quad,
+                        0.1
+                    )
+
+                    task.delay(0.11, function()
+                        if items[ "dropdown_holder" ].Parent and not cfg.open then
+                            items[ "dropdown_holder" ].Visible = false
+                        end
+                    end)
+
+                    if library.current_open == cfg then
+                        library.current_open = nil
+                    end
                 end
             end
             
@@ -3765,61 +3849,94 @@
                 local selected = {}
                 local isTable = type(value) == "table"
 
-                for _, option in cfg.option_instances do 
-                    if option.Text == value or (isTable and find(value, option.Text)) then 
+                for _, option in cfg.option_instances do
+                    local is_placeholder = option:GetAttribute("VoidHubPlaceholder") == true
+                    local is_selected = not is_placeholder
+                        and (option.Text == value or (isTable and find(value, option.Text)))
+
+                    if is_selected then
                         insert(selected, option.Text)
-                        cfg.multi_items = selected
-                        option.TextColor3 = themes.preset.accent
-                    else
-                        option.TextColor3 = rgb(72, 72, 73)
+                    end
+
+                    option:SetAttribute("VoidHubSelected", is_selected)
+                    option.BackgroundTransparency = is_selected and 0.78 or 1
+                    option.TextColor3 = is_selected and themes.preset.accent or rgb(205, 205, 212)
+                end
+
+                cfg.multi_items = selected
+
+                local display = isTable and concat(selected, ", ") or selected[1] or ""
+                if display == "" then
+                    display = isTable and "None selected" or "Select..."
+                end
+
+                items[ "sub_text" ].Text = display
+                flags[cfg.flag] = isTable and selected or selected[1] or value
+
+                cfg.callback(flags[cfg.flag])
+            end
+            
+            function cfg.refresh_options(list)
+                cfg.y_size = 0
+
+                for _, option in cfg.option_instances do
+                    option:Destroy()
+                end
+
+                cfg.option_instances = {}
+
+                local count = 0
+                for _, option in (list or {}) do
+                    if option ~= nil and tostring(option) ~= "" then
+                        local button = cfg.render_option(option)
+                        count += 1
+                        insert(cfg.option_instances, button)
+
+                        button.Activated:Connect(function()
+                            if button:GetAttribute("VoidHubPlaceholder") == true then
+                                return
+                            end
+
+                            if cfg.multi then
+                                cfg.multi_items = cfg.multi_items or {}
+                                local selected_index = find(cfg.multi_items, button.Text)
+
+                                if selected_index then
+                                    remove(cfg.multi_items, selected_index)
+                                else
+                                    insert(cfg.multi_items, button.Text)
+                                end
+
+                                cfg.set(cfg.multi_items)
+                            else
+                                cfg.set(button.Text)
+                                cfg.set_visible(false)
+                            end
+                        end)
                     end
                 end
 
-                items[ "sub_text" ].Text = isTable and concat(selected, ", ") or selected[1] or ""
-                flags[cfg.flag] = isTable and selected or selected[1]
-                
-                cfg.callback(flags[cfg.flag]) 
-            end
-            
-            function cfg.refresh_options(list) 
-                cfg.y_size = 0
-
-                for _, option in cfg.option_instances do 
-                    option:Destroy() 
-                end
-                
-                cfg.option_instances = {} 
-
-                for _, option in list do 
-                    local button = cfg.render_option(option)
-                    cfg.y_size += 35
+                if count == 0 then
+                    local button = cfg.render_option("No options available")
+                    button:SetAttribute("VoidHubPlaceholder", true)
+                    button.TextColor3 = rgb(120, 120, 128)
+                    button.Selectable = false
+                    button.Active = false
                     insert(cfg.option_instances, button)
-                    
-                    button.Activated:Connect(function()
-                        if cfg.multi then 
-                            local selected_index = find(cfg.multi_items, button.Text)
-                            
-                            if selected_index then 
-                                remove(cfg.multi_items, selected_index)
-                            else
-                                insert(cfg.multi_items, button.Text)
-                            end
-                            
-                            cfg.set(cfg.multi_items) 				
-                        else 
-                            cfg.set_visible(false)
-                            cfg.open = false 
-                            
-                            cfg.set(button.Text)
-                        end
-                    end)
+                    count = 1
+                end
+
+                cfg.y_size = cfg.popup_padding * 2
+                    + (count * cfg.option_height)
+                    + (max(0, count - 1) * cfg.option_gap)
+
+                if cfg.open then
+                    cfg.set_visible(true)
                 end
             end
 
             items[ "dropdown" ].Activated:Connect(function()
-                cfg.open = not cfg.open 
-                
-                cfg.set_visible(cfg.open)
+                cfg.set_visible(not cfg.open)
             end)
 
             if cfg.seperator then 
