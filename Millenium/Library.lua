@@ -417,6 +417,14 @@
         function library:draggify(frame)
             frame.Active = true
             local dragging = false
+
+            local function is_locked()
+                local active_window = library.active_window
+                return active_window
+                    and active_window.items
+                    and active_window.items.main == frame
+                    and active_window.locked == true
+            end
             local active_input
             local drag_input
             local drag_start
@@ -440,7 +448,7 @@
             end
 
             library:connection(frame.InputBegan, function(input)
-                if not is_press(input) then return end
+                if is_locked() or not is_press(input) then return end
                 dragging = true
                 active_input = input
                 drag_input = nil
@@ -457,7 +465,7 @@
             end)
 
             library:connection(uis.InputChanged, function(input)
-                if not dragging or not active_input then return end
+                if is_locked() or not dragging or not active_input then return end
 
                 local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
                     and input.UserInputType == Enum.UserInputType.MouseMovement
@@ -844,6 +852,10 @@
                 library[ "mobile_toggle" ]:Destroy()
             end
 
+            if library[ "lock_toggle" ] then
+                library[ "lock_toggle" ]:Destroy()
+            end
+
             for _, connection in library.connections do
                 pcall(function()
                     connection:Disconnect()
@@ -957,6 +969,48 @@
 
             local mobile_transparency = clamp(tonumber(mobile_options.transparency or mobile_options.Transparency) or 0.05, 0, 1)
 
+            local lock_toggle = properties.lock_button
+            if lock_toggle == nil then
+                lock_toggle = properties.lockButton
+            end
+            if lock_toggle == nil then
+                lock_toggle = false
+            end
+
+            local lock_options
+            if type(lock_toggle) == "table" then
+                lock_options = lock_toggle
+            else
+                lock_options = {enabled = lock_toggle}
+            end
+
+            local lock_enabled = lock_options.enabled
+            if lock_enabled == nil then
+                lock_enabled = lock_options.Enabled
+            end
+            if lock_enabled == nil then
+                lock_enabled = true
+            end
+
+            local lock_draggable = lock_options.draggable
+            if lock_draggable == nil then
+                lock_draggable = lock_options.Draggable
+            end
+            if lock_draggable == nil then
+                lock_draggable = true
+            end
+
+            local lock_position = lock_options.position or lock_options.Position
+            if typeof(lock_position) ~= "UDim2" then
+                if type(lock_position) == "table" then
+                    local position_x = tonumber(lock_position.x or lock_position.X or lock_position[1])
+                    local position_y = tonumber(lock_position.y or lock_position.Y or lock_position[2])
+                    if position_x and position_y then
+                        lock_position = dim2(0, position_x, 0, position_y)
+                    end
+                end
+            end
+
             local close_button_enabled = properties.close_button
             if close_button_enabled == nil then
                 close_button_enabled = properties.closeButton
@@ -1067,6 +1121,10 @@
                 mobile_toggle_background = mobile_background;
                 mobile_toggle_image_color = mobile_image_color;
                 mobile_toggle_transparency = mobile_transparency;
+                lock_toggle_enabled = lock_enabled == true;
+                lock_toggle_draggable = lock_draggable == true;
+                lock_toggle_position = lock_position;
+                locked = properties.locked == true;
                 close_button_enabled = close_button_enabled == true;
                 close_unloads = close_unloads == true;
                 dpi_scale = dpi_scale;
@@ -1314,9 +1372,9 @@
                     Parent = items[ "side_frame" ];
                     Name = "\0";
                     BackgroundTransparency = 1;
-                    Position = dim2(0, 0, 0, 60);
+                    Position = dim2(0, 0, 0, 66);
                     BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(1, 0, 1, -60);
+                    Size = dim2(1, 0, 1, -66);
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(255, 255, 255)
                 }); cfg.button_holder = items[ "button_holder" ];
@@ -1344,14 +1402,31 @@
                     Name = "\0";
                     Text = string.format('<u>%s</u><font color = "rgb(255, 255, 255)">%s</font>', cfg.name, cfg.suffix);
                     BackgroundTransparency = 1;
-                    Size = dim2(1, 0, 0, 70);
+                    Size = dim2(1, 0, 0, 50);
                     TextColor3 = themes.preset.accent;
                     BorderSizePixel = 0;
                     RichText = true;
                     TextSize = 30;
                     BackgroundColor3 = rgb(255, 255, 255)
                 }); library:apply_theme(items[ "title" ], "accent", "TextColor3");
-                
+
+                items[ "subtitle" ] = library:create( "TextLabel" , {
+                    FontFace = fonts.small;
+                    Parent = items[ "side_frame" ];
+                    TextColor3 = rgb(104, 104, 108);
+                    BorderColor3 = rgb(0, 0, 0);
+                    Text = cfg.subtitle;
+                    Name = "VoidHubSubtitle";
+                    Size = dim2(1, -20, 0, 16);
+                    Position = dim2(0, 10, 0, 44);
+                    BackgroundTransparency = 1;
+                    TextXAlignment = Enum.TextXAlignment.Center;
+                    TextYAlignment = Enum.TextYAlignment.Center;
+                    BorderSizePixel = 0;
+                    TextSize = 11;
+                    BackgroundColor3 = rgb(255, 255, 255)
+                });
+
                 items[ "multi_holder" ] = library:create( "Frame" , {
                     Parent = items[ "main" ];
                     Name = "\0";
@@ -1709,6 +1784,115 @@
                 end)
             end
 
+            function cfg:update_lock_toggle()
+                if not library or not library[ "lock_toggle" ] then
+                    return false
+                end
+
+                local toggle_gui = library[ "lock_toggle" ]
+                toggle_gui.Enabled = self.lock_toggle_enabled == true
+
+                local lock_button = self.lock_toggle_button
+                if lock_button then
+                    lock_button.Text = self.locked and "🔒" or "🔓"
+                    lock_button.BackgroundColor3 = self.locked and themes.preset.accent or rgb(27, 27, 30)
+                    lock_button.TextColor3 = self.locked and rgb(255, 255, 255) or rgb(210, 210, 218)
+                end
+
+                return toggle_gui.Enabled
+            end
+
+            function cfg:set_locked(value)
+                self.locked = value == true
+                return self:update_lock_toggle()
+            end
+
+            function cfg:SetLocked(value)
+                return self:set_locked(value)
+            end
+
+            function cfg:toggle_locked()
+                return self:set_locked(not self.locked)
+            end
+
+            function cfg:ToggleLocked()
+                return self:toggle_locked()
+            end
+
+            if cfg.lock_toggle_enabled then
+                library[ "lock_toggle" ] = library:create( "ScreenGui" , {
+                    Parent = coregui;
+                    Name = "VoidHubLockToggle";
+                    Enabled = true;
+                    ZIndexBehavior = Enum.ZIndexBehavior.Global;
+                    DisplayOrder = 1001;
+                    IgnoreGuiInset = true
+                })
+
+                local lock_button = library:create( "TextButton" , {
+                    Parent = library[ "lock_toggle" ];
+                    Name = "VoidHubLockHandle";
+                    Active = true;
+                    Selectable = false;
+                    AutoButtonColor = false;
+                    BackgroundColor3 = rgb(27, 27, 30);
+                    BackgroundTransparency = 0.05;
+                    BorderSizePixel = 0;
+                    Text = cfg.locked and "🔒" or "🔓";
+                    TextColor3 = rgb(210, 210, 218);
+                    FontFace = fonts.font;
+                    TextSize = 18;
+                    Position = cfg.lock_toggle_position or dim2(0, 0, 0, 0);
+                    Size = dim2(0, 42, 0, 42);
+                    ZIndex = 1001
+                })
+
+                cfg.lock_toggle_button = lock_button
+
+                library:create( "UICorner" , {
+                    Parent = lock_button;
+                    CornerRadius = dim(0, 12)
+                })
+
+                library:create( "UIStroke" , {
+                    Parent = lock_button;
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(110, 110, 122);
+                    Transparency = 0.2;
+                    Thickness = 1
+                })
+
+                library:draggify(lock_button)
+
+                library:connection(lock_button.Activated, function()
+                    if library and library.active_window == cfg then
+                        cfg:toggle_locked()
+                    end
+                end)
+
+                if not cfg.lock_toggle_position then
+                    task.defer(function()
+                        if not lock_button.Parent or not items[ "main" ] then
+                            return
+                        end
+
+                        local current_camera = ws.CurrentCamera or camera
+                        local viewport = current_camera and current_camera.ViewportSize
+                        if not viewport then
+                            return
+                        end
+
+                        local size = lock_button.AbsoluteSize
+                        local x = items[ "main" ].AbsolutePosition.X + items[ "main" ].AbsoluteSize.X + 10
+                        local y = items[ "main" ].AbsolutePosition.Y + items[ "main" ].AbsoluteSize.Y - size.Y - 8
+                        x = clamp(x, 4, max(4, viewport.X - size.X - 4))
+                        y = clamp(y, 4, max(4, viewport.Y - size.Y - 4))
+                        lock_button.Position = dim_offset(x, y + get_gui_offset())
+                    end)
+                end
+            end
+
+            cfg:update_lock_toggle()
             cfg:update_mobile_toggle()
 
             if cfg.auto_minimize then
@@ -1937,9 +2121,10 @@
                                     BackgroundTransparency = 1;
                                     Name = "\0";
                                     BorderColor3 = rgb(0, 0, 0);
-                                    Size = dim2(1, -20, 1, -20);
+                                    Size = dim2(1, 0, 1, 0);
                                     BorderSizePixel = 0;
                                     Visible = false;
+                                    ClipsDescendants = true;
                                     BackgroundColor3 = rgb(255, 255, 255)
                                 });
                                 
@@ -2023,7 +2208,7 @@
                         self.items[ "global_fade" ].BackgroundTransparency = 0
                         
                         library:tween(self.items[ "global_fade" ], {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, 0.4)
-                        selected_tab[ 4 ].Size = dim2(1, -216, 1, -101)
+                        selected_tab[ 4 ].Size = dim2(1, -196, 1, -81)
                     end
 
                     library:tween(selected_tab[ 1 ], {BackgroundTransparency = 1})
@@ -2644,7 +2829,8 @@
                     Size = dim2(1, -2, 0, 35);
                     BackgroundColor3 = rgb(19, 19, 21);
                     BorderColor3 = rgb(0, 0, 0);
-                    BorderSizePixel = 0
+                    BorderSizePixel = 0;
+                    ClipsDescendants = true
                 });
 
                 library:create( "UICorner" , {
@@ -2729,7 +2915,8 @@
                     tab_items[ "label" ] = library:create( "TextLabel" , {
                         Parent = tab_items[ "button" ];
                         Position = dim2(0, data.icon and 28 or 8, 0, 0);
-                        Size = dim2(1, data.icon and -32 or -16, 1, 0);
+                        Size = dim2(0, 0, 1, 0);
+                        AutomaticSize = Enum.AutomaticSize.X;
                         BackgroundTransparency = 1;
                         Text = data.name;
                         TextColor3 = rgb(145, 145, 145);
