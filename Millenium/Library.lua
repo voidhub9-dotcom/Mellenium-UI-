@@ -414,7 +414,7 @@
             return (y_cond and x_cond)
         end
 
-        function library:draggify(frame, click_callback, drag_callback)
+        function library:draggify(frame)
             frame.Active = true
             local dragging = false
 
@@ -444,12 +444,7 @@
                 dragging = false
                 active_input = nil
                 drag_input = nil
-                local was_moved = moved
                 moved = false
-
-                if not was_moved and type(click_callback) == "function" then
-                    task.defer(click_callback)
-                end
             end
 
             library:connection(frame.InputBegan, function(input)
@@ -481,9 +476,6 @@
                 local delta = vec2(input.Position.X - drag_start.X, input.Position.Y - drag_start.Y)
                 if abs(delta.X) < 3 and abs(delta.Y) < 3 then return end
                 moved = true
-                if type(drag_callback) == "function" then
-                    drag_callback()
-                end
 
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
@@ -1773,9 +1765,6 @@
                     local x = clamp(button_start.X + delta.X, 0, max(0, viewport.X - size.X))
                     local y = clamp(button_start.Y + delta.Y, 0, max(0, viewport.Y - size.Y))
                     mobile_button.Position = dim_offset(x, y + get_gui_offset())
-                    if cfg.position_lock_toggle then
-                        cfg:position_lock_toggle()
-                    end
                 end)
 
                 library:connection(uis.InputEnded, function(input)
@@ -1795,36 +1784,6 @@
                 end)
             end
 
-            function cfg:position_lock_toggle()
-                local lock_button = self.lock_toggle_button
-                if not lock_button or not lock_button.Parent or self.lock_toggle_detached then
-                    return false
-                end
-
-                local current_camera = ws.CurrentCamera or camera
-                local viewport = current_camera and current_camera.ViewportSize
-                if not viewport then
-                    return false
-                end
-
-                local anchor = self.mobile_toggle_button
-                local x
-                local y
-                if anchor and anchor.Parent then
-                    x = anchor.AbsolutePosition.X
-                    y = anchor.AbsolutePosition.Y + anchor.AbsoluteSize.Y + 8
-                else
-                    x = items[ "main" ].AbsolutePosition.X + items[ "main" ].AbsoluteSize.X + 10
-                    y = items[ "main" ].AbsolutePosition.Y + items[ "main" ].AbsoluteSize.Y - lock_button.AbsoluteSize.Y - 8
-                end
-
-                local size = lock_button.AbsoluteSize
-                x = clamp(x, 4, max(4, viewport.X - size.X - 4))
-                y = clamp(y, 4, max(4, viewport.Y - size.Y - 4))
-                lock_button.Position = dim_offset(x, y + get_gui_offset())
-                return true
-            end
-
             function cfg:update_lock_toggle()
                 if not library or not library[ "lock_toggle" ] then
                     return false
@@ -1832,7 +1791,6 @@
 
                 local toggle_gui = library[ "lock_toggle" ]
                 toggle_gui.Enabled = self.lock_toggle_enabled == true
-                self:position_lock_toggle()
 
                 local lock_button = self.lock_toggle_button
                 if lock_button then
@@ -1904,21 +1862,34 @@
                     Thickness = 1
                 })
 
-                library:draggify(
-                    lock_button,
-                    function()
-                        if library and library.active_window == cfg then
-                            cfg:toggle_locked()
-                        end
-                    end,
-                    function()
-                        cfg.lock_toggle_detached = true
-                    end
-                )
+                library:draggify(lock_button)
 
-                task.defer(function()
-                    cfg:position_lock_toggle()
+                library:connection(lock_button.Activated, function()
+                    if library and library.active_window == cfg then
+                        cfg:toggle_locked()
+                    end
                 end)
+
+                if not cfg.lock_toggle_position then
+                    task.defer(function()
+                        if not lock_button.Parent or not items[ "main" ] then
+                            return
+                        end
+
+                        local current_camera = ws.CurrentCamera or camera
+                        local viewport = current_camera and current_camera.ViewportSize
+                        if not viewport then
+                            return
+                        end
+
+                        local size = lock_button.AbsoluteSize
+                        local x = items[ "main" ].AbsolutePosition.X + items[ "main" ].AbsoluteSize.X + 10
+                        local y = items[ "main" ].AbsolutePosition.Y + items[ "main" ].AbsoluteSize.Y - size.Y - 8
+                        x = clamp(x, 4, max(4, viewport.X - size.X - 4))
+                        y = clamp(y, 4, max(4, viewport.Y - size.Y - 4))
+                        lock_button.Position = dim_offset(x, y + get_gui_offset())
+                    end)
+                end
             end
 
             cfg:update_lock_toggle()
