@@ -1048,6 +1048,7 @@
                 suffix = properties.suffix or properties.Suffix or "UI";
                 name = properties.name or properties.Name or "VoidHub";
                 game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI";
+                subtitle = properties.subtitle or properties.Subtitle or properties.sub_title or properties.subTitle or game_name;
                 size = resolved_size;
                 auto_dpi = auto_dpi ~= false;
                 auto_minimize = auto_minimize == true;
@@ -1437,7 +1438,7 @@
                     Parent = items[ "info" ];
                     TextColor3 = rgb(72, 72, 73);
                     BorderColor3 = rgb(0, 0, 0);
-                    Text = cfg.game_name;
+                    Text = cfg.subtitle;
                     Name = "\0";
                     Size = dim2(1, 0, 0, 0);
                     AnchorPoint = vec2(0, 0.5);
@@ -1720,7 +1721,7 @@
         function library:tab(properties)
             local cfg = {
                 name = properties.name or properties.Name or "visuals"; 
-                icon = properties.icon or properties.Icon or "http://www.roblox.com/asset/?id=6034767608";
+                icon = properties.icon or properties.Icon or properties.image or properties.Image or "http://www.roblox.com/asset/?id=6034767608";
                 
                 -- multi 
                 tabs = properties.tabs or properties.Tabs or {"Main", "Misc.", "Settings"};
@@ -1738,7 +1739,7 @@
                     BackgroundTransparency = 1;
                     Position = dim2(0, 196, 0, 56);
                     BorderColor3 = rgb(0, 0, 0);
-                    Size = dim2(1, -216, 1, -101);
+                    Size = dim2(1, -196, 1, -81);
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(255, 255, 255)
                 });
@@ -1837,6 +1838,12 @@
                     });                        
 
                     for _, section in cfg.tabs do
+                        local section_name = type(section) == "table"
+                            and (section.name or section.Name or section.title or section.Title or "Main")
+                            or tostring(section)
+                        local section_icon = type(section) == "table"
+                            and (section.icon or section.Icon or section.image or section.Image)
+                            or nil
                         local data = {items = {}} 
 
                         local multi_items = data.items; do 
@@ -1862,7 +1869,7 @@
                                     FontFace = fonts.font;
                                     TextColor3 = rgb(62, 62, 63);
                                     BorderColor3 = rgb(0, 0, 0);
-                                    Text = section;
+                                    Text = section_name;
                                     Parent = multi_items[ "button" ];
                                     Name = "\0";
                                     Size = dim2(0, 0, 1, 0);
@@ -1908,6 +1915,21 @@
                                     CornerRadius = dim(0, 7)
                                 }); 
                             --
+
+                                if section_icon then
+                                    multi_items[ "icon" ] = library:create( "ImageLabel" , {
+                                        Parent = multi_items[ "button" ];
+                                        Image = section_icon;
+                                        ImageColor3 = rgb(62, 62, 63);
+                                        Position = dim2(0, 8, 0.5, -8);
+                                        Size = dim2(0, 16, 0, 16);
+                                        BackgroundTransparency = 1;
+                                        BorderSizePixel = 0
+                                    })
+                                    library:apply_theme(multi_items[ "icon" ], "accent", "ImageColor3")
+                                    multi_items[ "name" ].Position = dim2(0, 28, 0, 0)
+                                    multi_items[ "name" ].Size = dim2(0, -28, 1, 0)
+                                end
 
                             -- Tab 
                                 multi_items[ "tab" ] = library:create( "Frame" , {
@@ -1957,8 +1979,7 @@
                                 self.items[ "global_fade" ].BackgroundTransparency = 0
                                 library:tween(self.items[ "global_fade" ], {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, 0.4)
                                 
-                                local old_size = page.page.Size
-                                page.page.Size = dim2(1, -20, 1, -20)
+                                page.page.Size = dim2(1, 0, 1, 0)
                             end
 
                             if page then
@@ -2671,7 +2692,7 @@
 
                 local data = {
                     name = options.name or options.Name or "Tab";
-                    icon = options.icon or options.Icon;
+                    icon = options.icon or options.Icon or options.image or options.Image;
                     items = {};
                 }
 
@@ -2680,7 +2701,8 @@
                         Parent = items[ "tabs" ];
                         Text = "";
                         AutoButtonColor = false;
-                        Size = dim2(0, 96, 0, 27);
+                        Size = dim2(0, 0, 0, 27);
+                        AutomaticSize = Enum.AutomaticSize.X;
                         BackgroundColor3 = rgb(25, 25, 29);
                         BorderColor3 = rgb(0, 0, 0);
                         BorderSizePixel = 0
