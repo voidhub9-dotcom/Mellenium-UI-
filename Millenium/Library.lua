@@ -274,53 +274,87 @@
         end
 
         function library:resizify(frame)
-            local Frame = Instance.new("TextButton")
-            Frame.Position = dim2(1, -20, 1, -20)
-            Frame.BorderColor3 = rgb(0, 0, 0)
-            Frame.Size = dim2(0, 20, 0, 20)
-            Frame.BorderSizePixel = 0
-            Frame.BackgroundColor3 = rgb(255, 255, 255)
-            Frame.Parent = frame
-            Frame.BackgroundTransparency = 1
-            Frame.Text = ""
-            Frame.Active = true
-            Frame.Selectable = false
-            Frame.ZIndex = 20
+            if not frame or not frame.Parent then return end
+
+            local Handle = Instance.new("TextButton")
+            Handle.Name = "VoidHubResizeHandle"
+            Handle.AnchorPoint = vec2(1, 1)
+            Handle.Position = dim2(1, -5, 1, -5)
+            Handle.Size = dim2(0, 26, 0, 26)
+            Handle.BorderSizePixel = 0
+            Handle.BackgroundColor3 = rgb(44, 44, 52)
+            Handle.BackgroundTransparency = 0.08
+            Handle.Text = "↘"
+            Handle.TextColor3 = rgb(235, 235, 240)
+            Handle.TextSize = 15
+            Handle.Font = Enum.Font.GothamBold
+            Handle.AutoButtonColor = false
+            Handle.Active = true
+            Handle.Selectable = false
+            Handle.ZIndex = 100
+            Handle.Parent = frame
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = dim(0, 6)
+            corner.Parent = Handle
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = rgb(110, 110, 122)
+            stroke.Thickness = 1
+            stroke.Transparency = 0.25
+            stroke.Parent = Handle
 
             local resizing = false
             local active_input
             local resize_input
-            local start_size
-            local start
-            local og_size = frame.Size
+            local start_position
+            local start_absolute
+            local minimum_width = 280
+            local minimum_height = 180
 
             local function is_press(input)
                 return input.UserInputType == Enum.UserInputType.MouseButton1
                     or input.UserInputType == Enum.UserInputType.Touch
             end
 
+            local function viewport_bounds()
+                local current_camera = ws.CurrentCamera or camera
+                local viewport = current_camera and current_camera.ViewportSize
+                if not viewport then return nil end
+
+                local scale_object = frame:FindFirstChildOfClass("UIScale")
+                local ui_scale = scale_object and scale_object.Scale or 1
+                ui_scale = ui_scale > 0 and ui_scale or 1
+
+                local available_width = max(1, viewport.X - frame.AbsolutePosition.X - 4) / ui_scale
+                local available_height = max(1, viewport.Y - frame.AbsolutePosition.Y - 4) / ui_scale
+                return ui_scale, max(minimum_width, available_width), max(minimum_height, available_height)
+            end
+
             local function stop_resize(input)
                 if not active_input then return end
-                if input and input ~= active_input and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                if input and input ~= active_input
+                    and input.UserInputType ~= Enum.UserInputType.MouseButton1
+                    and input.UserInputType ~= Enum.UserInputType.Touch then
                     return
                 end
                 resizing = false
                 active_input = nil
                 resize_input = nil
-                library:clamp_to_viewport(frame)
+                library:clamp_to_viewport(frame, 4)
             end
 
-            library:connection(Frame.InputBegan, function(input)
+            library:connection(Handle.InputBegan, function(input)
                 if not is_press(input) then return end
-                library:clamp_to_viewport(frame)
+                library:clamp_to_viewport(frame, 4)
                 resizing = true
                 active_input = input
                 resize_input = nil
-                start = input.Position
-                start_size = frame.Size
+                start_position = input.Position
+                start_absolute = frame.AbsoluteSize
             end)
 
-            library:connection(Frame.InputChanged, function(input)
+            library:connection(Handle.InputChanged, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement
                     or input.UserInputType == Enum.UserInputType.Touch then
                     resize_input = input
@@ -328,7 +362,7 @@
             end)
 
             library:connection(uis.InputChanged, function(input)
-                if not resizing or not active_input then return end
+                if not resizing or not active_input or not start_position or not start_absolute then return end
 
                 local is_mouse_drag = active_input.UserInputType == Enum.UserInputType.MouseButton1
                     and input.UserInputType == Enum.UserInputType.MouseMovement
@@ -336,34 +370,24 @@
                     and (input == active_input or input == resize_input)
                 if not (is_mouse_drag or is_touch_drag) then return end
 
-                local scale_object = frame:FindFirstChildOfClass("UIScale")
-                local ui_scale = scale_object and scale_object.Scale or 1
-                ui_scale = ui_scale > 0 and ui_scale or 1
+                local ui_scale, max_width, max_height = viewport_bounds()
+                if not ui_scale then return end
 
-                local available_width = max(1, viewport.X - frame.AbsolutePosition.X)
-                local available_height = max(1, viewport.Y - frame.AbsolutePosition.Y)
-                local max_width = available_width / ui_scale
-                local max_height = available_height / ui_scale
-                local min_width = min(og_size.X.Offset, max_width)
-                local min_height = min(og_size.Y.Offset, max_height)
-
-                frame.Size = dim2(
-                    start_size.X.Scale,
-                    clamp(start_size.X.Offset + (input.Position.X - start.X) / ui_scale, min_width, max_width),
-                    start_size.Y.Scale,
-                    clamp(start_size.Y.Offset + (input.Position.Y - start.Y) / ui_scale, min_height, max_height)
-                )
-                library:clamp_to_viewport(frame)
+                local width = clamp(start_absolute.X / ui_scale + (input.Position.X - start_position.X) / ui_scale, minimum_width, max_width)
+                local height = clamp(start_absolute.Y / ui_scale + (input.Position.Y - start_position.Y) / ui_scale, minimum_height, max_height)
+                frame.Size = dim2(0, width, 0, height)
+                library:clamp_to_viewport(frame, 4)
             end)
 
             library:connection(uis.InputEnded, function(input)
                 if active_input and (input == active_input
                     or (active_input.UserInputType == Enum.UserInputType.MouseButton1
-                        and input.UserInputType == Enum.UserInputType.MouseButton1)) then
+                        and input.UserInputType == Enum.UserInputType.MouseButton1)
+                    or (active_input.UserInputType == Enum.UserInputType.Touch
+                        and input.UserInputType == Enum.UserInputType.Touch)) then
                     stop_resize(input)
                 end
             end)
-
         end
 
         function fag(tbl)
