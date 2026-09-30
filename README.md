@@ -90,7 +90,7 @@ Library:init_config(Window)         -- adds the Configs page (call last)
 | `lockButton` / `lock_button` | bool or table | Padlock, see [Window lock](#window-lock) |
 | `locked` | bool | Start locked |
 | `closeButton` | bool | Show the close button (default `true`) |
-| `closeMode` | `"unload"` (default) or `"hide"` | The X unloads the UI immediately with no prompt; `"hide"` only hides it (reopen with the mobile toggle or menu key) |
+| `closeMode` | `"unload"` (default) or `"hide"` | The X asks "Unload?" in a centred dialog, then unloads everything (padlock and floating button included); `"hide"` just hides the window (reopen with the mobile toggle or menu key) |
 
 The window, resize handle, floating button, drawers and overlays are clamped to the visible viewport. Dragging and resizing accept mouse and touch.
 
@@ -143,7 +143,7 @@ print(Window:is_locked())   -- also :IsLocked()
 local A, B, C = Window:tab({name = "Main", icon = "rbxassetid://…", tabs = {"A", "B", "C"}})
 ```
 
-`Window:tab` returns one page object per name in `tabs`. The active sidebar tab is a filled pill (text and icon switch to black or white depending on the accent), sub-tabs use an underline, and both have hover states.
+`Window:tab` returns one page object per name in `tabs`. The active sidebar tab is a filled pill (text and icon switch to black or white depending on the accent), sub-tabs are pills with a filled, outlined active state, and both have hover states.
 
 ```lua
 Window:select_tab("Main")               -- by name or index (also :SelectTab)
@@ -194,7 +194,7 @@ All controls are created on a section or group box and return the control object
 | --- | --- | --- |
 | `toggle` | `name`, `flag`, `default`, `type = "toggle" \| "checkbox"`, `seperator` | Defaults to the **switch** style. `.set(bool)` |
 | `slider` | `min`, `max`, `interval`, `default`, `suffix` | Value is clamped to `min..max`; `min == max` is safe. `.set(number)` |
-| `dropdown` | `items`, `default`, `multi`, `width` | Marker dot on the selected option; `.set(value)`, `.refresh_options(items)` |
+| `dropdown` | `items`, `default`, `multi`, `width` | Check mark on the selected option, popup scales with the window; `.set(value)`, `.refresh_options(items)` |
 | `multi_dropdown` | `items`, `default = {…}` | Shows "N selected" past two picks; Select all, Clear and `:SearchOptions(text)` |
 | `colorpicker` | `color`, `alpha`, `name` | Saturation/value pad, hue and alpha bars, RGBA text box |
 | `textbox` | `placeholder`, `default` | |
@@ -297,6 +297,8 @@ Library:Confirm({
 ```
 
 Drawers stay inside the window, follow it when it is resized, and close from the backdrop or the close button.
+
+`Library:Confirm` is a centred dialog over the window (dimmed backdrop, Cancel and Confirm buttons; clicking outside cancels). Buttons created with `confirm = true` and the X button use it.
 
 ## Configs
 

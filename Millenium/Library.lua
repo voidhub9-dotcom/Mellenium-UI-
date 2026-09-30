@@ -757,6 +757,14 @@
             insert(themes.utility[theme][property], instance)
         end
 
+        -- scale of the active window; popups live outside the window so they copy it
+        function library:get_ui_scale()
+            local window = library.active_window
+            local scale = window and window.items and window.items[ "dpi_scale" ]
+            local value = scale and scale.Scale or 1
+            return value > 0 and value or 1
+        end
+
         -- readable foreground (near black or white) for something drawn on `color`
         function library:on_accent(color)
             local luminance = 0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B
@@ -1684,9 +1692,21 @@
             end
 
             if items[ "close" ] then
-                -- X unloads the UI straight away (closeMode = "hide" only hides it)
+                -- X asks first when it would unload; closeMode = "hide" just hides
                 library:connection(items[ "close" ].Activated, function()
-                    cfg:close()
+                    if cfg.close_unloads then
+                        library:Confirm({
+                            title = "Unload " .. tostring(cfg.name) .. "?";
+                            message = "This removes the UI and everything it started. You can run the script again to bring it back.";
+                            confirmText = "Unload";
+                            cancelText = "Cancel";
+                            callback = function()
+                                cfg:close()
+                            end;
+                        })
+                    else
+                        cfg:close()
+                    end
                 end)
 
                 library:connection(items[ "close" ].MouseEnter, function()
@@ -2223,8 +2243,8 @@
                     });
                     
                     library:create( "UIPadding" , {
-                        PaddingTop = dim(0, 8);
-                        PaddingBottom = dim(0, 7);
+                        PaddingTop = dim(0, 12);
+                        PaddingBottom = dim(0, 12);
                         Parent = items[ "multi_section_button_holder" ];
                         PaddingRight = dim(0, 7);
                         PaddingLeft = dim(0, 7)
@@ -2249,13 +2269,21 @@
                                     Text = "";
                                     Parent = items[ "multi_section_button_holder" ];
                                     Name = "\0";
-                                    Size = dim2(0, 0, 0, 39);
+                                    Size = dim2(0, 0, 0, 32);
                                     BackgroundTransparency = 1;
                                     ClipsDescendants = true;
                                     BorderSizePixel = 0;
                                     AutomaticSize = Enum.AutomaticSize.X;
                                     TextSize = 16;
-                                    BackgroundColor3 = rgb(17, 17, 17)
+                                    BackgroundColor3 = rgb(30, 30, 30)
+                                });
+
+                                multi_items[ "stroke" ] = library:create( "UIStroke" , {
+                                    Parent = multi_items[ "button" ];
+                                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                                    Color = rgb(64, 64, 64);
+                                    Transparency = 1;
+                                    Thickness = 1
                                 });
                                 
                                 multi_items[ "name" ] = library:create( "TextLabel" , {
@@ -2289,6 +2317,7 @@
                                     Name = "\0";
                                     Size = dim2(1, -20, 0, 6);
                                     BorderSizePixel = 0;
+                                    Visible = false;
                                     BackgroundColor3 = themes.preset.accent
                                 }); library:apply_theme(multi_items[ "accent" ], "accent", "BackgroundColor3");
                                 
@@ -2361,6 +2390,7 @@
                         data.text = multi_items[ "name" ]
                         data.accent = multi_items[ "accent" ]
                         data.button = multi_items[ "button" ]
+                        data.stroke = multi_items[ "stroke" ]
                         data.page = multi_items[ "tab" ]
                         data.parent = setmetatable(data, library):sub_tab({}).items[ "tab_parent" ]
                         
@@ -2382,6 +2412,7 @@
                                 library:tween(page.text, {TextColor3 = rgb(142, 142, 142)})
                                 library:tween(page.accent, {BackgroundTransparency = 1})
                                 library:tween(page.button, {BackgroundTransparency = 1})
+                                library:tween(page.stroke, {Transparency = 1})
 
                                 page.page.Visible = false
                                 page.page.Parent = library[ "cache" ] 
@@ -2390,6 +2421,7 @@
                             library:tween(data.text, {TextColor3 = rgb(255, 255, 255)})
                             library:tween(data.accent, {BackgroundTransparency = 0})
                             library:tween(data.button, {BackgroundTransparency = 0})
+                            library:tween(data.stroke, {Transparency = 0})
                             library:tween(data.page, {Size = dim2(1, 0, 1, 0)}, Enum.EasingStyle.Quad, 0.4)
 
                             data.page.Visible = true
@@ -4007,8 +4039,9 @@
                 scrolling = options.scrolling or false;
 
                 width = options.width or 130;
+                min_popup_width = options.min_popup_width or options.minPopupWidth or 150;
                 height = options.height or 30;
-                option_height = options.option_height or 31;
+                option_height = options.option_height or 30;
                 option_gap = options.option_gap or 4;
                 popup_padding = options.popup_padding or 8;
                 max_popup_height = options.max_popup_height or options.maxPopupHeight or 240;
@@ -4050,7 +4083,7 @@
                         FontFace = fonts.small;
                         TextColor3 = rgb(245, 245, 245);
                         BorderColor3 = rgb(0, 0, 0);
-                        Text = "Dropdown";
+                        Text = cfg.name or "Dropdown";
                         Parent = items[ "dropdown_object" ];
                         Name = "\0";
                         Size = dim2(1, -(cfg.width + 16), 0, 22);
@@ -4170,11 +4203,11 @@
                         BorderColor3 = rgb(0, 0, 0);
                         Parent = items[ "dropdown" ];
                         AnchorPoint = vec2(1, 0.5);
-                        Image = "rbxassetid://101025591575185";
+                        Image = "rbxassetid://10709790948";
                         BackgroundTransparency = 1;
-                        Position = dim2(1, -5, 0.5, 0);
+                        Position = dim2(1, -8, 0.5, 0);
                         Name = "\0";
-                        Size = dim2(0, 12, 0, 12);
+                        Size = dim2(0, 16, 0, 16);
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(255, 255, 255);
                         ZIndex = 3
@@ -4211,6 +4244,12 @@
                         ZIndex = 50;
                     });
                     library:apply_theme(items[ "outline" ], "accent", "ScrollBarImageColor3");
+
+                    -- the popup sits outside the window, so it gets its own copy of the window scale
+                    items[ "holder_scale" ] = library:create( "UIScale" , {
+                        Parent = items[ "dropdown_holder" ];
+                        Scale = 1
+                    });
                     
                     library:create( "UIPadding" , {
                         PaddingBottom = dim(0, cfg.popup_padding);
@@ -4249,6 +4288,7 @@
                     Text = tostring(text);
                     Parent = items[ "outline" ];
                     Name = "\0";
+                    TextTruncate = Enum.TextTruncate.AtEnd;
                     Size = dim2(1, -(cfg.popup_padding * 2), 0, cfg.option_height);
                     BackgroundTransparency = 1;
                     TextXAlignment = Enum.TextXAlignment.Left;
@@ -4273,22 +4313,20 @@
                     PaddingLeft = dim(0, 10)
                 });
 
-                -- selection marker: small dot on the right, only visible when selected
-                library:create( "Frame" , {
+                -- selection marker: Lucide check on the right, only visible when selected
+                library:create( "ImageLabel" , {
                     Name = "Marker";
                     Parent = button;
                     AnchorPoint = vec2(1, 0.5);
-                    Position = dim2(1, 18, 0.5, 0);
-                    Size = dim2(0, 6, 0, 6);
-                    BackgroundColor3 = rgb(245, 245, 245);
+                    Position = dim2(1, 22, 0.5, 0);
+                    Size = dim2(0, 16, 0, 16);
                     BackgroundTransparency = 1;
+                    Image = "rbxassetid://10709790644";
+                    ImageColor3 = rgb(245, 245, 245);
+                    ImageTransparency = 1;
                     BorderSizePixel = 0;
                     ZIndex = 53;
-                }):SetAttribute("VoidHubMarker", true)
-                library:create( "UICorner" , {
-                    Parent = button:FindFirstChild("Marker");
-                    CornerRadius = dim(0, 999)
-                });
+                })
 
                 button.MouseEnter:Connect(function()
                     if button:GetAttribute("VoidHubSelected") ~= true
@@ -4326,14 +4364,18 @@
                 local holder = items[ "dropdown_holder" ]
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
-                local popup_width = trigger.AbsoluteSize.X > 0 and trigger.AbsoluteSize.X or cfg.width
-                local popup_limit = cfg.max_popup_height
+                local scale = library:get_ui_scale()
+                items[ "holder_scale" ].Scale = scale
+                local popup_width = max(trigger.AbsoluteSize.X, cfg.min_popup_width * scale)
+                local popup_limit = cfg.max_popup_height * scale
 
                 if viewport then
                     popup_limit = min(popup_limit, max(96, viewport.Y - 28))
                 end
 
-                local popup_height = should_open and min(cfg.y_size, popup_limit) or 0
+                local popup_height = should_open and min(cfg.y_size * scale, popup_limit) or 0
+                local design_width = popup_width / scale
+                local design_height = popup_height / scale
 
                 if should_open then
                     local previous = library.current_open
@@ -4344,7 +4386,7 @@
                     cfg.open = true
                     cfg.update_visual()
                     holder.Visible = true
-                    holder.Size = dim_offset(popup_width, popup_height)
+                    holder.Size = dim_offset(design_width, design_height)
 
                     if viewport then
                         local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - popup_width - 6))
@@ -4361,7 +4403,7 @@
                     library.current_open = cfg
                     library:tween(
                         holder,
-                        {Size = dim_offset(popup_width, popup_height)},
+                        {Size = dim_offset(design_width, design_height)},
                         Enum.EasingStyle.Quad,
                         0.14
                     )
@@ -4375,7 +4417,7 @@
 
                     library:tween(
                         holder,
-                        {Size = dim_offset(popup_width, 0)},
+                        {Size = dim_offset(design_width, 0)},
                         Enum.EasingStyle.Quad,
                         0.1
                     )
@@ -4418,7 +4460,7 @@
                     option.TextColor3 = is_selected and rgb(255, 255, 255) or rgb(190, 190, 190)
                     local marker = option:FindFirstChild("Marker")
                     if marker then
-                        marker.BackgroundTransparency = is_selected and 0 or 1
+                        marker.ImageTransparency = is_selected and 0 or 1
                     end
                 end
 
@@ -4814,6 +4856,11 @@
                         BackgroundColor3 = rgb(66, 66, 66)
                     });
 
+                    items[ "colorpicker_scale" ] = library:create( "UIScale" , {
+                        Parent = items[ "colorpicker_holder" ];
+                        Scale = 1
+                    });
+
                     items[ "colorpicker_fade" ] = library:create( "Frame" , {
                         Parent = items[ "colorpicker_holder" ];
                         Name = "\0";
@@ -5087,7 +5134,9 @@
                 local current_camera = ws.CurrentCamera or camera
                 local viewport = current_camera and current_camera.ViewportSize
                 if viewport then
-                    local holder_size = items[ "colorpicker_holder" ].AbsoluteSize
+                    local scale = library:get_ui_scale()
+                    items[ "colorpicker_scale" ].Scale = scale
+                    local holder_size = vec2(166 * scale, 197 * scale)
                     local trigger = items[ "colorpicker" ]
                     local x = clamp(trigger.AbsolutePosition.X, 6, max(6, viewport.X - holder_size.X - 6))
                     local y = trigger.AbsolutePosition.Y + trigger.AbsoluteSize.Y + 8
@@ -7932,62 +7981,184 @@ do
         return api
     end
 
+    -- Centered confirmation dialog: dims the window and asks Cancel / Confirm
     function library:Confirm(options)
         options = options or {}
-        local modal = library:CreateDrawer({
-            title = options.title or "Confirm action";
-            height = tonumber(options.height) or 190;
+
+        local window = library.active_window
+        local window_root = window and window.items and window.items.main
+        local parent = window_root and window_root.Parent and window_root or library.items
+        local host_scale = window_root and 1 or library:get_ui_scale()
+
+        local overlay = library:create("TextButton", {
+            Parent = parent;
+            Name = "VoidHubConfirm";
+            Text = "";
+            AutoButtonColor = false;
+            Active = true;
+            Selectable = false;
+            Size = dim2(1, 0, 1, 0);
+            BackgroundColor3 = rgb(0, 0, 0);
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            ZIndex = 200;
+        })
+        if window_root then
+            library:create("UICorner", {Parent = overlay; CornerRadius = dim(0, 10)})
+        end
+
+        local card = library:create("Frame", {
+            Parent = overlay;
+            AnchorPoint = vec2(0.5, 0.5);
+            Position = dim2(0.5, 0, 0.5, 8);
+            Size = dim2(0, 300, 0, 0);
+            AutomaticSize = Enum.AutomaticSize.Y;
+            BackgroundColor3 = rgb(14, 14, 14);
+            BackgroundTransparency = 1;
+            Active = true;
+            BorderSizePixel = 0;
+            ZIndex = 201;
+        })
+        library:create("UICorner", {Parent = card; CornerRadius = dim(0, 12)})
+        local card_stroke = library:create("UIStroke", {
+            Parent = card;
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+            Color = rgb(66, 66, 66);
+            Transparency = 1;
+            Thickness = 1;
+        })
+        if not window_root then
+            library:create("UIScale", {Parent = card; Scale = host_scale})
+        end
+        library:create("UIPadding", {
+            Parent = card;
+            PaddingTop = dim(0, 18);
+            PaddingBottom = dim(0, 16);
+            PaddingLeft = dim(0, 18);
+            PaddingRight = dim(0, 18);
+        })
+        library:create("UIListLayout", {
+            Parent = card;
+            Padding = dim(0, 8);
+            SortOrder = Enum.SortOrder.LayoutOrder;
+        })
+
+        local title = library:create("TextLabel", {
+            Parent = card;
+            LayoutOrder = 1;
+            Text = options.title or "Confirm action";
+            Size = dim2(1, 0, 0, 20);
+            BackgroundTransparency = 1;
+            TextColor3 = rgb(245, 245, 245);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            TextTransparency = 1;
+            FontFace = fonts.font;
+            TextSize = 17;
+            BorderSizePixel = 0;
+            ZIndex = 202;
         })
 
         local message = library:create("TextLabel", {
-            Parent = modal.content;
+            Parent = card;
+            LayoutOrder = 2;
             Text = options.message or "Are you sure?";
-            Size = dim2(1, -8, 0, 64);
+            Size = dim2(1, 0, 0, 0);
+            AutomaticSize = Enum.AutomaticSize.Y;
             BackgroundTransparency = 1;
-            TextColor3 = rgb(190, 190, 194);
+            TextColor3 = rgb(170, 170, 170);
+            TextXAlignment = Enum.TextXAlignment.Left;
+            TextYAlignment = Enum.TextYAlignment.Top;
             TextWrapped = true;
+            TextTransparency = 1;
             FontFace = fonts.small;
             TextSize = 14;
             BorderSizePixel = 0;
-            ZIndex = 74;
+            ZIndex = 202;
         })
 
         local actions = library:create("Frame", {
-            Parent = modal.content;
-            Size = dim2(1, -8, 0, 42);
+            Parent = card;
+            LayoutOrder = 3;
+            Size = dim2(1, 0, 0, 38);
             BackgroundTransparency = 1;
             BorderSizePixel = 0;
-            ZIndex = 74;
+            ZIndex = 202;
         })
 
-        local cancel = library:create("TextButton", {
-            Parent = actions;
-            Text = options.cancelText or "Cancel";
-            Size = dim2(0.5, -4, 1, 0);
-            BackgroundColor3 = rgb(26, 26, 26);
-            TextColor3 = rgb(220, 220, 220);
-            FontFace = fonts.font;
-            TextSize = 14;
-            BorderSizePixel = 0;
-            ZIndex = 75;
-        })
+        local function make_button(text, position, fill, text_color, stroke_color)
+            local button = library:create("TextButton", {
+                Parent = actions;
+                Text = text;
+                AutoButtonColor = false;
+                Position = position;
+                Size = dim2(0.5, -4, 1, 0);
+                BackgroundColor3 = fill;
+                BackgroundTransparency = 1;
+                TextColor3 = text_color;
+                TextTransparency = 1;
+                FontFace = fonts.font;
+                TextSize = 14;
+                BorderSizePixel = 0;
+                Selectable = false;
+                ZIndex = 203;
+            })
+            library:create("UICorner", {Parent = button; CornerRadius = dim(0, 8)})
+            local stroke
+            if stroke_color then
+                stroke = library:create("UIStroke", {
+                    Parent = button;
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = stroke_color;
+                    Transparency = 1;
+                    Thickness = 1;
+                })
+            end
+            return button, stroke
+        end
 
-        local confirm = library:create("TextButton", {
-            Parent = actions;
-            Text = options.confirmText or "Confirm";
-            Position = dim2(0.5, 4, 0, 0);
-            Size = dim2(0.5, -4, 1, 0);
-            BackgroundColor3 = themes.preset.accent;
-            TextColor3 = rgb(10, 10, 10);
-            FontFace = fonts.font;
-            TextSize = 14;
-            BorderSizePixel = 0;
-            ZIndex = 75;
-        })
+        local cancel, cancel_stroke = make_button(options.cancelText or "Cancel", dim2(0, 0, 0, 0), rgb(26, 26, 26), rgb(225, 225, 225), rgb(66, 66, 66))
+        local confirm = make_button(options.confirmText or "Confirm", dim2(0.5, 4, 0, 0), themes.preset.accent, library:on_accent(themes.preset.accent))
 
-        library:create("UICorner", {Parent = cancel; CornerRadius = dim(0, 7)})
-        library:create("UICorner", {Parent = confirm; CornerRadius = dim(0, 7)})
+        local modal = {overlay = overlay; card = card; closed = false}
+
+        function modal:Close()
+            if modal.closed then return modal end
+            modal.closed = true
+            library:tween(overlay, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, 0.14)
+            library:tween(card, {BackgroundTransparency = 1, Position = dim2(0.5, 0, 0.5, 8)}, Enum.EasingStyle.Quad, 0.14)
+            library:tween(card_stroke, {Transparency = 1}, Enum.EasingStyle.Quad, 0.14)
+            for _, object in {title, message, cancel, confirm} do
+                library:tween(object, {TextTransparency = 1}, Enum.EasingStyle.Quad, 0.12)
+            end
+            task.delay(0.16, function()
+                if overlay.Parent then overlay:Destroy() end
+            end)
+            return modal
+        end
+
+        function modal:Open()
+            library:tween(overlay, {BackgroundTransparency = 0.45}, Enum.EasingStyle.Quad, 0.16)
+            library:tween(card, {BackgroundTransparency = 0, Position = dim2(0.5, 0, 0.5, 0)}, Enum.EasingStyle.Quint, 0.2)
+            library:tween(card_stroke, {Transparency = 0}, Enum.EasingStyle.Quad, 0.2)
+            for _, object in {title, message} do
+                library:tween(object, {TextTransparency = 0}, Enum.EasingStyle.Quad, 0.2)
+            end
+            library:tween(cancel, {BackgroundTransparency = 0, TextTransparency = 0}, Enum.EasingStyle.Quad, 0.2)
+            library:tween(cancel_stroke, {Transparency = 0}, Enum.EasingStyle.Quad, 0.2)
+            library:tween(confirm, {BackgroundTransparency = 0, TextTransparency = 0}, Enum.EasingStyle.Quad, 0.2)
+            return modal
+        end
+
+        function modal:Destroy()
+            modal.closed = true
+            if overlay.Parent then overlay:Destroy() end
+        end
+
         library:connection(cancel.Activated, function()
+            modal:Close()
+            if options.onCancel then options.onCancel() end
+        end)
+        library:connection(overlay.Activated, function()
             modal:Close()
             if options.onCancel then options.onCancel() end
         end)
@@ -8529,7 +8700,7 @@ do
         end
         table.clear(library.connections)
 
-        for _, key in {"items", "other", "mobile_toggle"} do
+        for _, key in {"items", "other", "mobile_toggle", "lock_toggle"} do
             local instance = library[key]
             if typeof(instance) == "Instance" then
                 pcall(function()
@@ -8551,6 +8722,7 @@ do
 
         library.active_window = nil
         library.mobile_toggle_button = nil
+        library.lock_toggle_button = nil
 
         local environment = getgenv()
         local current_library = library
