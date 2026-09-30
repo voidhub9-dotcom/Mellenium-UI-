@@ -3876,7 +3876,7 @@
                     Size = dim2(1, 0, 0, 4);
                     BorderColor3 = rgb(0, 0, 0);
                     BorderSizePixel = 0;
-                    BackgroundColor3 = rgb(26, 26, 26);
+                    BackgroundColor3 = rgb(44, 44, 44);
                     ZIndex = 2
                 });
 
@@ -3915,6 +3915,13 @@
                 library:create( "UICorner" , {
                     Parent = items[ "circle" ];
                     CornerRadius = dim(0, 999)
+                });
+
+                library:create( "UIStroke" , {
+                    Parent = items[ "circle" ];
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(9, 9, 9);
+                    Thickness = 2;
                 });
 
                 library:create( "UIPadding" , {
@@ -4168,20 +4175,20 @@
                         Size = dim2(0, cfg.width, 0, cfg.height);
                         BorderSizePixel = 0;
                         TextSize = 14;
-                        BackgroundColor3 = rgb(20, 20, 20);
+                        BackgroundColor3 = rgb(26, 26, 26);
                         ZIndex = 2
                     });
                     
                     library:create( "UICorner" , {
                         Parent = items[ "dropdown" ];
-                        CornerRadius = dim(0, 6)
+                        CornerRadius = dim(0, 7)
                     });
 
                     items[ "dropdown_stroke" ] = library:create( "UIStroke" , {
                         Parent = items[ "dropdown" ];
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-                        Color = rgb(64, 64, 64);
-                        Transparency = 0.18;
+                        Color = rgb(58, 58, 58);
+                        Transparency = 0;
                         Thickness = 1
                     });
                     
@@ -4253,7 +4260,7 @@
                         ScrollBarImageColor3 = rgb(62, 62, 62);
                         BorderColor3 = rgb(0, 0, 0);
                         BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(20, 20, 20);
+                        BackgroundColor3 = rgb(12, 12, 12);
                         ZIndex = 50;
                     });
                     library:apply_theme(items[ "outline" ], "accent", "ScrollBarImageColor3");
@@ -4274,14 +4281,14 @@
                     
                     library:create( "UICorner" , {
                         Parent = items[ "outline" ];
-                        CornerRadius = dim(0, 7)
+                        CornerRadius = dim(0, 9)
                     });
 
                     items[ "outline_stroke" ] = library:create( "UIStroke" , {
                         Parent = items[ "outline" ];
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-                        Color = rgb(64, 64, 64);
-                        Transparency = 0.12;
+                        Color = rgb(66, 66, 66);
+                        Transparency = 0;
                         Thickness = 1
                     });
                 -- 
@@ -4290,7 +4297,7 @@
             function cfg.render_option(text)
                 local button = library:create( "TextButton" , {
                     FontFace = fonts.small;
-                    TextColor3 = rgb(205, 205, 212);
+                    TextColor3 = rgb(190, 190, 190);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = tostring(text);
                     Parent = items[ "outline" ];
@@ -4302,33 +4309,50 @@
                     BorderSizePixel = 0;
                     AutomaticSize = Enum.AutomaticSize.None;
                     TextSize = 13;
-                    BackgroundColor3 = rgb(58, 58, 58);
+                    BackgroundColor3 = rgb(255, 255, 255);
                     AutoButtonColor = false;
                     Selectable = false;
                     ZIndex = 52;
-                }); library:apply_theme(button, "accent", "TextColor3");
+                });
                 
                 library:create( "UICorner" , {
                     Parent = button;
-                    CornerRadius = dim(0, 5)
+                    CornerRadius = dim(0, 6)
                 });
 
                 library:create( "UIPadding" , {
                     Parent = button;
-                    PaddingRight = dim(0, 7);
-                    PaddingLeft = dim(0, 8)
+                    PaddingRight = dim(0, 26);
+                    PaddingLeft = dim(0, 10)
+                });
+
+                -- selection marker: small dot on the right, only visible when selected
+                library:create( "Frame" , {
+                    Name = "Marker";
+                    Parent = button;
+                    AnchorPoint = vec2(1, 0.5);
+                    Position = dim2(1, 18, 0.5, 0);
+                    Size = dim2(0, 6, 0, 6);
+                    BackgroundColor3 = rgb(245, 245, 245);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    ZIndex = 53;
+                }):SetAttribute("VoidHubMarker", true)
+                library:create( "UICorner" , {
+                    Parent = button:FindFirstChild("Marker");
+                    CornerRadius = dim(0, 999)
                 });
 
                 button.MouseEnter:Connect(function()
                     if button:GetAttribute("VoidHubSelected") ~= true
                         and button:GetAttribute("VoidHubPlaceholder") ~= true then
-                        button.BackgroundTransparency = 0.84
+                        library:tween(button, {BackgroundTransparency = 0.93}, Enum.EasingStyle.Quad, 0.1)
                     end
                 end)
 
                 button.MouseLeave:Connect(function()
                     if button:GetAttribute("VoidHubSelected") ~= true then
-                        button.BackgroundTransparency = 1
+                        library:tween(button, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, 0.1)
                     end
                 end)
                 
@@ -4337,17 +4361,13 @@
             
             function cfg.update_visual()
                 if cfg.open then
-                    items[ "dropdown" ].BackgroundColor3 = rgb(34, 34, 34)
-                    items[ "dropdown_stroke" ].Color = themes.preset.accent
-                    items[ "dropdown_stroke" ].Transparency = 0
-                    items[ "indicator" ].Rotation = 180
-                    items[ "indicator" ].ImageColor3 = themes.preset.accent
-                else
                     items[ "dropdown" ].BackgroundColor3 = rgb(20, 20, 20)
-                    items[ "dropdown_stroke" ].Color = rgb(64, 64, 64)
-                    items[ "dropdown_stroke" ].Transparency = 0.18
-                    items[ "indicator" ].Rotation = 0
-                    items[ "indicator" ].ImageColor3 = rgb(128, 128, 128)
+                    library:tween(items[ "dropdown_stroke" ], {Color = themes.preset.accent}, Enum.EasingStyle.Quad, 0.12)
+                    library:tween(items[ "indicator" ], {Rotation = 180, ImageColor3 = themes.preset.accent}, Enum.EasingStyle.Quad, 0.15)
+                else
+                    items[ "dropdown" ].BackgroundColor3 = rgb(26, 26, 26)
+                    library:tween(items[ "dropdown_stroke" ], {Color = rgb(58, 58, 58)}, Enum.EasingStyle.Quad, 0.12)
+                    library:tween(items[ "indicator" ], {Rotation = 0, ImageColor3 = rgb(140, 140, 140)}, Enum.EasingStyle.Quad, 0.15)
                 end
             end
 
@@ -4447,13 +4467,20 @@
                     end
 
                     option:SetAttribute("VoidHubSelected", is_selected)
-                    option.BackgroundTransparency = is_selected and 0.78 or 1
-                    option.TextColor3 = is_selected and themes.preset.accent or rgb(205, 205, 212)
+                    option.BackgroundTransparency = is_selected and 0.88 or 1
+                    option.TextColor3 = is_selected and rgb(255, 255, 255) or rgb(190, 190, 190)
+                    local marker = option:FindFirstChild("Marker")
+                    if marker then
+                        marker.BackgroundTransparency = is_selected and 0 or 1
+                    end
                 end
 
                 cfg.multi_items = selected
 
-                local display = isTable and concat(selected, ", ") or selected[1] or ""
+                local display = selected[1] or ""
+                if isTable then
+                    display = #selected > 2 and (#selected .. " selected") or concat(selected, ", ")
+                end
                 if display == "" then
                     display = isTable and "None selected" or "Select..."
                 end
@@ -4461,8 +4488,8 @@
                 items[ "sub_text" ].Text = display
                 items[ "sub_text" ].TextColor3 =
                     (display == "Select..." or display == "None selected")
-                    and rgb(138, 138, 138)
-                    or rgb(220, 220, 228)
+                    and rgb(140, 140, 140)
+                    or rgb(240, 240, 240)
                 flags[cfg.flag] = isTable and selected or selected[1] or value
 
                 cfg.callback(flags[cfg.flag])
@@ -4587,8 +4614,8 @@
                     Text = cfg.width < 170 and "All" or "Select all";
                     AutoButtonColor = false;
                     Size = dim2(0.5, -3, 1, 0);
-                    BackgroundColor3 = rgb(34, 34, 34);
-                    TextColor3 = rgb(205, 205, 212);
+                    BackgroundColor3 = rgb(26, 26, 26);
+                    TextColor3 = rgb(215, 215, 215);
                     FontFace = fonts.small;
                     TextSize = cfg.width < 170 and 11 or 12;
                     TextTruncate = Enum.TextTruncate.AtEnd;
@@ -4602,8 +4629,8 @@
                     AutoButtonColor = false;
                     Position = dim2(0.5, 3, 0, 0);
                     Size = dim2(0.5, -3, 1, 0);
-                    BackgroundColor3 = rgb(34, 34, 34);
-                    TextColor3 = rgb(205, 205, 212);
+                    BackgroundColor3 = rgb(26, 26, 26);
+                    TextColor3 = rgb(215, 215, 215);
                     FontFace = fonts.small;
                     TextSize = cfg.width < 170 and 11 or 12;
                     TextTruncate = Enum.TextTruncate.AtEnd;
@@ -4622,14 +4649,14 @@
                 })
                 library:create("UIStroke", {
                     Parent = select_all;
-                    Color = rgb(66, 66, 66);
-                    Transparency = 0.2;
+                    Color = rgb(58, 58, 58);
+                    Transparency = 0;
                     Thickness = 1;
                 })
                 library:create("UIStroke", {
                     Parent = clear;
-                    Color = rgb(66, 66, 66);
-                    Transparency = 0.2;
+                    Color = rgb(58, 58, 58);
+                    Transparency = 0;
                     Thickness = 1;
                 })
 
@@ -4801,7 +4828,14 @@
                     
                     library:create( "UICorner" , {
                         Parent = items[ "colorpicker" ];
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 6)
+                    });
+
+                    library:create( "UIStroke" , {
+                        Parent = items[ "colorpicker" ];
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(70, 70, 70);
+                        Thickness = 1
                     });
                     
                     items[ "colorpicker_inline" ] = library:create( "Frame" , {
@@ -4817,13 +4851,8 @@
                     
                     library:create( "UICorner" , {
                         Parent = items[ "colorpicker_inline" ];
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 5)
                     });
-                    
-                    library:create( "UIGradient" , {
-                        Color = rgbseq{rgbkey(0, rgb(211, 211, 211)), rgbkey(1, rgb(211, 211, 211))};
-                        Parent = items[ "colorpicker_inline" ]
-                    });         
                 --
                 
                 -- Colorpicker
@@ -4835,7 +4864,7 @@
                         Size = dim2(0, 166, 0, 197);
                         BorderSizePixel = 0;
                         Visible = true;
-                        BackgroundColor3 = rgb(17, 17, 17)
+                        BackgroundColor3 = rgb(66, 66, 66)
                     });
 
                     items[ "colorpicker_fade" ] = library:create( "Frame" , {
@@ -4847,7 +4876,7 @@
                         Size = dim2(1, 0, 1, 0);
                         BorderSizePixel = 0;
                         ZIndex = 100;
-                        BackgroundColor3 = rgb(17, 17, 17)
+                        BackgroundColor3 = rgb(14, 14, 14)
                     });
                     
                     items[ "colorpicker_components" ] = library:create( "Frame" , {
@@ -4862,7 +4891,7 @@
                     
                     library:create( "UICorner" , {
                         Parent = items[ "colorpicker_components" ];
-                        CornerRadius = dim(0, 6)
+                        CornerRadius = dim(0, 8)
                     });
                     
                     items[ "saturation_holder" ] = library:create( "Frame" , {
@@ -5069,7 +5098,7 @@
                     library:create( "UIGradient" , {
                         Rotation = 90;
                         Parent = items[ "colorpicker_components" ];
-                        Color = rgbseq{rgbkey(0, rgb(255, 255, 255)), rgbkey(1, rgb(66, 66, 66))}
+                        Color = rgbseq{rgbkey(0, rgb(255, 255, 255)), rgbkey(1, rgb(255, 255, 255))}
                     });
 
                     items[ "input" ] = library:create( "TextBox" , {
@@ -5100,7 +5129,7 @@
                     items[ "UICorenr" ] = library:create( "UICorner" , { -- fire misstypo (im not fixing this RAWR)
                         Parent = items[ "colorpicker_holder" ];
                         Name = "\0";
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 9)
                     });
                 --                  
             end;
@@ -5365,8 +5394,21 @@
 
                 library:create( "UICorner" , {
                     Parent = items[ "input" ];
-                    CornerRadius = dim(0, 3)
-                });                
+                    CornerRadius = dim(0, 7)
+                });
+
+                items[ "input_stroke" ] = library:create( "UIStroke" , {
+                    Parent = items[ "input" ];
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(58, 58, 58);
+                    Thickness = 1
+                });
+
+                library:create( "UIPadding" , {
+                    Parent = items[ "input" ];
+                    PaddingLeft = dim(0, 10);
+                    PaddingRight = dim(0, 10)
+                });
                 
                 library:create( "UIPadding" , {
                     Parent = items[ "right_components" ];
@@ -5388,11 +5430,13 @@
             end)
 
             items[ "input" ].Focused:Connect(function()
-                library:tween(items[ "input" ], {TextColor3 = rgb(245, 245, 245)})
+                library:tween(items[ "input" ], {TextColor3 = rgb(245, 245, 245), BackgroundColor3 = rgb(20, 20, 20)})
+                library:tween(items[ "input_stroke" ], {Color = themes.preset.accent})
             end)
 
             items[ "input" ].FocusLost:Connect(function()
-                library:tween(items[ "input" ], {TextColor3 = rgb(154, 154, 154)})
+                library:tween(items[ "input" ], {TextColor3 = rgb(200, 200, 200), BackgroundColor3 = rgb(26, 26, 26)})
+                library:tween(items[ "input_stroke" ], {Color = rgb(58, 58, 58)})
             end)
                 
             if cfg.default then 
@@ -5493,7 +5537,7 @@
                         Parent = items[ "right_components" ];
                         AutoButtonColor = false;
                         AnchorPoint = vec2(1, 0);
-                        Size = dim2(0, 0, 0, 16);
+                        Size = dim2(0, 0, 0, 20);
                         Name = "\0";
                         Position = dim2(1, 0, 0, 0);
                         BorderSizePixel = 0;
@@ -5504,7 +5548,14 @@
                     
                     library:create( "UICorner" , {
                         Parent = items[ "keybind_holder" ];
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 6)
+                    });
+
+                    library:create( "UIStroke" , {
+                        Parent = items[ "keybind_holder" ];
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(58, 58, 58);
+                        Thickness = 1
                     });
                     
                     items[ "key" ] = library:create( "TextLabel" , {
@@ -5569,7 +5620,14 @@
                     
                     library:create( "UICorner" , {
                         Parent = items[ "inline" ];
-                        CornerRadius = dim(0, 4)
+                        CornerRadius = dim(0, 7)
+                    });
+
+                    library:create( "UIStroke" , {
+                        Parent = items[ "inline" ];
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(66, 66, 66);
+                        Thickness = 1
                     });
                     
                     local options = {"Hold", "Toggle", "Always"}
@@ -5804,7 +5862,14 @@
                 
                 library:create( "UICorner" , {
                     Parent = items[ "button" ];
-                    CornerRadius = dim(0, 3)
+                    CornerRadius = dim(0, 7)
+                });
+
+                items[ "button_stroke" ] = library:create( "UIStroke" , {
+                    Parent = items[ "button" ];
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(58, 58, 58);
+                    Thickness = 1
                 });
                 
                 items[ "name" ] = library:create( "TextLabel" , {
@@ -5823,11 +5888,24 @@
                 }); library:apply_theme(items[ "name" ], "accent", "BackgroundColor3");                            
             end 
 
+            library:connection(items[ "button" ].MouseEnter, function()
+                library:tween(items[ "button" ], {BackgroundColor3 = rgb(34, 34, 34)}, Enum.EasingStyle.Quad, 0.12)
+                library:tween(items[ "button_stroke" ], {Color = rgb(96, 96, 96)}, Enum.EasingStyle.Quad, 0.12)
+            end)
+
+            library:connection(items[ "button" ].MouseLeave, function()
+                library:tween(items[ "button" ], {BackgroundColor3 = rgb(26, 26, 26)}, Enum.EasingStyle.Quad, 0.15)
+                library:tween(items[ "button_stroke" ], {Color = rgb(58, 58, 58)}, Enum.EasingStyle.Quad, 0.15)
+            end)
+
             items[ "button" ].Activated:Connect(function()
                 cfg.callback()
 
-                items[ "name" ].TextColor3 = themes.preset.accent 
-                library:tween(items[ "name" ], {TextColor3 = rgb(245, 245, 245)})
+                -- press flash: fill snaps to the accent and fades back
+                items[ "button" ].BackgroundColor3 = themes.preset.accent
+                items[ "name" ].TextColor3 = library:on_accent(themes.preset.accent)
+                library:tween(items[ "button" ], {BackgroundColor3 = rgb(34, 34, 34)}, Enum.EasingStyle.Quad, 0.3)
+                library:tween(items[ "name" ], {TextColor3 = rgb(245, 245, 245)}, Enum.EasingStyle.Quad, 0.3)
             end)
             
             return setmetatable(cfg, library)
@@ -5969,6 +6047,10 @@
                 for _, entry in cfg.data_store do
                     local active = entry.value == value
                     entry.label.TextColor3 = active and rgb(245, 245, 245) or rgb(154, 154, 154)
+                    library:tween(entry.button, {BackgroundColor3 = active and rgb(44, 44, 44) or rgb(26, 26, 26)}, Enum.EasingStyle.Quad, 0.12)
+                    if entry.stroke then
+                        library:tween(entry.stroke, {Color = active and themes.preset.accent or rgb(58, 58, 58)}, Enum.EasingStyle.Quad, 0.12)
+                    end
 
                     if active then
                         selected = entry
@@ -6030,10 +6112,18 @@
 
                     library:create( "UICorner" , {
                         Parent = button;
-                        CornerRadius = dim(0, 3)
+                        CornerRadius = dim(0, 7)
+                    });
+
+                    local stroke = library:create( "UIStroke" , {
+                        Parent = button;
+                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                        Color = rgb(58, 58, 58);
+                        Thickness = 1
                     });
 
                     local entry = {
+                        stroke = stroke;
                         button = button;
                         label = name;
                         value = option_data;

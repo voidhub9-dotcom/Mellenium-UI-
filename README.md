@@ -194,8 +194,8 @@ All controls are created on a section or group box and return the control object
 | --- | --- | --- |
 | `toggle` | `name`, `flag`, `default`, `type = "toggle" \| "checkbox"`, `seperator` | Defaults to the **switch** style. `.set(bool)` |
 | `slider` | `min`, `max`, `interval`, `default`, `suffix` | Value is clamped to `min..max`; `min == max` is safe. `.set(number)` |
-| `dropdown` | `items`, `default`, `multi` | `.set(value)`, `.refresh_options(items)` |
-| `multi_dropdown` | `items`, `default = {…}` | Select all, clear and `:SearchOptions(text)` |
+| `dropdown` | `items`, `default`, `multi`, `width` | Marker dot on the selected option; `.set(value)`, `.refresh_options(items)` |
+| `multi_dropdown` | `items`, `default = {…}` | Shows "N selected" past two picks; Select all, Clear and `:SearchOptions(text)` |
 | `colorpicker` | `color`, `alpha`, `name` | Saturation/value pad, hue and alpha bars, RGBA text box |
 | `textbox` | `placeholder`, `default` | |
 | `keybind` | `key`, `mode = "Toggle" \| "Hold" \| "Always"` | Right-click (long-press on touch) for the mode list |
