@@ -1043,7 +1043,7 @@
                     or properties.closeMode
                     or properties.close_behavior
                     or properties.closeBehavior
-                    or "hide"
+                    or "unload"
             ))
             local close_unloads = properties.unload_on_close == true
                 or properties.unloadOnClose == true
@@ -1684,18 +1684,9 @@
             end
 
             if items[ "close" ] then
+                -- X unloads the UI straight away (closeMode = "hide" only hides it)
                 library:connection(items[ "close" ].Activated, function()
-                    library:Confirm({
-                        title = cfg.close_unloads and "Unload VoidHub UI?" or "Close VoidHub UI?";
-                        message = cfg.close_unloads
-                            and "This will unload the UI and remove its connections."
-                            or "The UI will be hidden and can be reopened with the mobile toggle.";
-                        confirmText = cfg.close_unloads and "Unload" or "Close";
-                        cancelText = "Cancel";
-                        callback = function()
-                            cfg:close()
-                        end;
-                    })
+                    cfg:close()
                 end)
 
                 library:connection(items[ "close" ].MouseEnter, function()
@@ -1934,7 +1925,7 @@
                     parts.stroke.Color = locked and themes.preset.accent or rgb(100, 100, 100)
                     -- closed shackle sits on the body; open shackle lifts and swings aside
                     library:tween(parts.shackle, {
-                        Position = locked and dim2(0.5, 0, 0.5, -4) or dim2(0.5, -4, 0.5, -8);
+                        Position = locked and dim2(0.5, 0, 0.5, -11) or dim2(0.5, -2, 0.5, -15);
                     }, Enum.EasingStyle.Back, 0.2)
                     lock.Name = locked and "VoidHubLockHandle_Locked" or "VoidHubLockHandle"
                     if parts.tooltip then
@@ -2040,7 +2031,7 @@
                     BorderSizePixel = 0;
                     Text = "";
                     Position = cfg.lock_toggle_position or dim2(0, 0, 0, 0);
-                    Size = dim2(0, 40, 0, 40);
+                    Size = dim2(0, 36, 0, 36);
                     ZIndex = 1001
                 })
 
@@ -2065,9 +2056,9 @@
                 parts.shackle = library:create( "Frame" , {
                     Parent = lock_button;
                     Name = "Shackle";
-                    AnchorPoint = vec2(0.5, 1);
-                    Position = dim2(0.5, 0, 0.5, -4);
-                    Size = dim2(0, 14, 0, 16);
+                    AnchorPoint = vec2(0.5, 0);
+                    Position = dim2(0.5, 0, 0.5, -11);
+                    Size = dim2(0, 12, 0, 16);
                     BackgroundTransparency = 1;
                     BorderSizePixel = 0;
                     ZIndex = 1002
@@ -2080,15 +2071,15 @@
                     Parent = parts.shackle;
                     ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
                     Color = rgb(225, 225, 230);
-                    Thickness = 2.5
+                    Thickness = 2
                 })
 
                 parts.body = library:create( "Frame" , {
                     Parent = lock_button;
                     Name = "Body";
                     AnchorPoint = vec2(0.5, 0);
-                    Position = dim2(0.5, 0, 0.5, -4);
-                    Size = dim2(0, 20, 0, 15);
+                    Position = dim2(0.5, 0, 0.5, -2);
+                    Size = dim2(0, 18, 0, 13);
                     BackgroundColor3 = rgb(225, 225, 230);
                     BorderSizePixel = 0;
                     ZIndex = 1003
@@ -2103,7 +2094,7 @@
                     Name = "Keyhole";
                     AnchorPoint = vec2(0.5, 0.5);
                     Position = dim2(0.5, 0, 0.5, 0);
-                    Size = dim2(0, 4, 0, 6);
+                    Size = dim2(0, 3, 0, 5);
                     BackgroundColor3 = rgb(20, 20, 20);
                     BorderSizePixel = 0;
                     ZIndex = 1004
@@ -6190,20 +6181,20 @@
             end
 
             -- Profiles ------------------------------------------------------
-            local list_section = profiles:column({}):section({
-                name = "Saved configs",
-                size = 1,
-                default = true,
-                icon = "rbxassetid://139628202576511"
+            local profile_boxes = profiles:groupboxes({
+                maxHeight = 250,
+                boxes = {
+                    {name = "Saved configs", icon = "rbxassetid://139628202576511"},
+                    {name = "Manage", icon = "rbxassetid://129380150574313"},
+                    {name = "Autoload", icon = "rbxassetid://139628202576511"},
+                    {name = "Share & backup", icon = "rbxassetid://129380150574313"},
+                }
             })
 
-            local manage_section = profiles:column({}):section({
-                name = "Manage",
-                side = "right",
-                size = 1,
-                default = true,
-                icon = "rbxassetid://129380150574313"
-            })
+            local list_section = profile_boxes.top_left
+            local manage_section = profile_boxes.top_right
+            local autoload_section = profile_boxes.bottom_left
+            local share_section = profile_boxes.bottom_right
 
             local name_box
             local empty_state = list_section:label({
@@ -6284,8 +6275,8 @@
                 end
             })
 
-            manage_section:button({
-                name = "Use as autoload",
+            autoload_section:button({
+                name = "Use selected as autoload",
                 callback = function()
                     local name = selected_name()
                     if not name then
@@ -6296,7 +6287,7 @@
                 end
             })
 
-            manage_section:button({
+            autoload_section:button({
                 name = "Clear autoload",
                 callback = function()
                     library:SetAutoload(nil)
@@ -6304,27 +6295,7 @@
                 end
             })
 
-            manage_section:button({
-                name = "Copy config to clipboard",
-                callback = function()
-                    local ok, result = executor_call("setclipboard", library:get_config())
-                    notify(ok and "Copied current settings" or tostring(result), ok and "success" or "error")
-                end
-            })
-
-            manage_section:button({
-                name = "Import from clipboard",
-                callback = function()
-                    local ok, text = executor_call("getclipboard")
-                    if not ok then
-                        return notify(tostring(text), "error")
-                    end
-                    local loaded, err = library:load_config(text)
-                    notify(loaded and "Imported settings" or ("Import failed: " .. tostring(err)), loaded and "success" or "error")
-                end
-            })
-
-            local autosave = manage_section:toggle({
+            local autosave = autoload_section:toggle({
                 name = "Auto save",
                 flag = "cfgui_autosave",
                 info = "Saves the selected config on an interval.",
@@ -6337,7 +6308,7 @@
                 end
             })
 
-            manage_section:slider({
+            autoload_section:slider({
                 name = "Auto save interval",
                 flag = "cfgui_autosave_interval",
                 min = 10,
@@ -6352,25 +6323,51 @@
                 end
             })
 
+            share_section:button({
+                name = "Copy config to clipboard",
+                callback = function()
+                    local ok, result = executor_call("setclipboard", library:get_config())
+                    notify(ok and "Copied current settings" or tostring(result), ok and "success" or "error")
+                end
+            })
+
+            share_section:button({
+                name = "Import from clipboard",
+                callback = function()
+                    local ok, text = executor_call("getclipboard")
+                    if not ok then
+                        return notify(tostring(text), "error")
+                    end
+                    local loaded, err = library:load_config(text)
+                    notify(loaded and "Imported settings" or ("Import failed: " .. tostring(err)), loaded and "success" or "error")
+                end
+            })
+
+            share_section:dropdown({
+                name = "Config scope",
+                flag = "cfgui_scope",
+                items = {"global", "game"},
+                default = "global",
+                info = "Game keeps a separate list of configs per game.",
+                callback = function(value)
+                    library:SetConfigScope(value)
+                end
+            })
+
             -- Interface -----------------------------------------------------
-            local appearance = interface:column({}):section({
-                name = "Appearance",
-                size = 1,
-                default = true,
-                icon = "rbxassetid://129380150574313"
+            local interface_boxes = interface:groupboxes({
+                maxHeight = 250,
+                boxes = {
+                    {name = "Theme", icon = "rbxassetid://129380150574313"},
+                    {name = "Accent", icon = "rbxassetid://139628202576511"},
+                    {name = "Window", icon = "rbxassetid://129380150574313"},
+                    {name = "Session", icon = "rbxassetid://139628202576511"},
+                }
             })
 
-            local behaviour = interface:column({}):section({
-                name = "Window",
-                side = "right",
-                size = 1,
-                default = true,
-                icon = "rbxassetid://139628202576511"
-            })
+            interface_boxes.top_left:theme_manager({default = "Void"})
 
-            appearance:theme_manager({default = "Void"})
-
-            appearance:colorpicker({
+            interface_boxes.top_right:colorpicker({
                 name = "Accent colour",
                 flag = "cfgui_accent",
                 color = themes.preset.accent,
@@ -6379,7 +6376,7 @@
                 end
             })
 
-            behaviour:keybind({
+            interface_boxes.bottom_left:keybind({
                 name = "Menu key",
                 flag = "cfgui_menu_key",
                 callback = function(bool)
@@ -6388,7 +6385,7 @@
                 default = true
             })
 
-            local lock_toggle = behaviour:toggle({
+            local lock_toggle = interface_boxes.bottom_left:toggle({
                 name = "Lock window",
                 flag = "cfgui_lock",
                 default = window.locked == true,
@@ -6401,7 +6398,7 @@
                 lock_toggle.set(value)
             end
 
-            behaviour:button({
+            interface_boxes.bottom_right:button({
                 name = "Unload UI",
                 confirm = true,
                 confirmTitle = "Unload the UI?",

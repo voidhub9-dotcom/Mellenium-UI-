@@ -90,7 +90,7 @@ Library:init_config(Window)         -- adds the Configs page (call last)
 | `lockButton` / `lock_button` | bool or table | Padlock, see [Window lock](#window-lock) |
 | `locked` | bool | Start locked |
 | `closeButton` | bool | Show the close button (default `true`) |
-| `closeMode` | `"hide"` or `"unload"` | What the close button does |
+| `closeMode` | `"unload"` (default) or `"hide"` | The X unloads the UI immediately with no prompt; `"hide"` only hides it (reopen with the mobile toggle or menu key) |
 
 The window, resize handle, floating button, drawers and overlays are clamped to the visible viewport. Dragging and resizing accept mouse and touch.
 
@@ -126,7 +126,7 @@ local Window = Library:window({
 What locking does:
 
 - Window dragging is disabled and the **resize handle is hidden**.
-- The padlock is drawn from frames (no emoji font needed): a closed shackle in your accent colour when locked, an open shackle when unlocked. Hovering shows a tooltip.
+- The padlock is drawn from frames (no emoji font needed): a white button with a closed lock when locked, a dark button with an open shackle when unlocked. Hovering shows a tooltip.
 - The padlock hides together with the menu, so it never floats around on its own.
 
 Control it from code:
@@ -304,10 +304,12 @@ Drawers stay inside the window, follow it when it is resized, and close from the
 Library:init_config(Window)     -- adds a "Configs" tab, call it after every control exists
 ```
 
-The page has two sub-tabs:
+The page has two sub-tabs, each a 2x2 grid of group boxes:
 
-- **Profiles**: list of saved configs, a name box, Save, Load, Delete (with confirm), Duplicate, Use as autoload / Clear autoload, copy to and import from the clipboard (needs `setclipboard` / `getclipboard`), plus Auto save with an interval slider.
-- **Interface**: theme preset and transparency, accent colour, menu key, a Lock window toggle (kept in sync with the padlock), and Unload UI (with confirm).
+- **Profiles**: *Saved configs* (the list), *Manage* (name box, Save, Load, Delete with confirm, Duplicate), *Autoload* (set/clear autoload, Auto save with interval) and *Share & backup* (copy to / import from the clipboard, config scope).
+- **Interface**: *Theme* (preset and transparency), *Accent*, *Window* (menu key, Lock window kept in sync with the padlock) and *Session* (Unload UI with confirm).
+
+Clipboard buttons need `setclipboard` / `getclipboard` from the executor.
 
 Flags that start with `cfgui_` belong to this page and are never written into a config. Everything else is.
 
