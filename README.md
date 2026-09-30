@@ -92,7 +92,7 @@ Library:init_config(Window)         -- adds the Configs page (call last)
 | `closeButton` | bool | Show the close button (default `true`) |
 | `closeMode` | `"unload"` (default) or `"hide"` | The X asks "Unload?" in a centred dialog, then unloads everything (padlock and floating button included); `"hide"` just hides the window (reopen with the mobile toggle or menu key) |
 
-The window, resize handle, floating button, drawers and overlays are clamped to the visible viewport. Dragging and resizing accept mouse and touch.
+The window, resize handle, floating button, drawers and overlays are clamped to the visible viewport. Dragging and resizing accept mouse and touch. **The window is dragged by its header strip only**, so sliders, scrolling and the resize handle never move it. Sidebar tabs scroll vertically and sub-tabs scroll sideways when the window is too small to show them all.
 
 ```lua
 Window:set_size(900, 650)
@@ -115,7 +115,7 @@ local Window = Library:window({
     lockButton = {
         enabled = true,          -- show the padlock (default true when a table is given)
         draggable = true,        -- the padlock itself can be dragged (default true)
-        position = {20, 200},    -- {x, y} offset in pixels or a UDim2; default: beside the window
+        position = {20, 200},    -- {x, y} offset in pixels or a UDim2; default: directly below the floating toggle (beside the window on desktop)
         locked = false,          -- start locked
         notify = false,          -- show a small notification on every toggle
         callback = function(locked) print("locked:", locked) end,
@@ -158,7 +158,6 @@ A.select()                              -- select this page (and its tab); pages
 
 ```lua
 local Boxes = A:groupboxes({
-    maxHeight = 240,           -- boxes scroll past this height
     scroll = true,
     responsive = true,         -- collapse to one column on small viewports
     singleColumnWidth = 700,
@@ -168,6 +167,8 @@ local Boxes = A:groupboxes({
 Boxes.top_left:toggle({name = "Hello"})
 -- also: top_right, bottom_left, bottom_right
 ```
+
+Boxes **stretch with the window**: each column splits the page height between its two boxes, and a box scrolls internally once its content is taller than its share. Resize the window and the boxes follow. Pass `fit = false` (with `maxHeight = 240`) if you want fixed-height boxes instead.
 
 `groupbox_grid` and `group_boxes` are aliases. Each box supports `:SetCollapsed(bool)`, `:ToggleCollapsed()` and `:SetVisible(bool)`.
 

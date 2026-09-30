@@ -419,8 +419,10 @@
             return (y_cond and x_cond)
         end
 
-        function library:draggify(frame)
+        -- `handle` (optional) is the part of the frame that starts a drag, e.g. the header strip
+        function library:draggify(frame, handle)
             frame.Active = true
+            handle = handle or frame
             local dragging = false
 
             local function is_locked()
@@ -452,7 +454,7 @@
                 moved = false
             end
 
-            library:connection(frame.InputBegan, function(input)
+            library:connection(handle.InputBegan, function(input)
                 if is_locked() or not is_press(input) then return end
                 dragging = true
                 active_input = input
@@ -462,7 +464,7 @@
                 moved = false
             end)
 
-            library:connection(frame.InputChanged, function(input)
+            library:connection(handle.InputChanged, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement
                     or input.UserInputType == Enum.UserInputType.Touch then
                     drag_input = input
@@ -1201,6 +1203,19 @@
                     Scale = 1
                 });
 
+                -- Only this strip moves the window, so sliders, the resize handle and
+                -- scrolling never drag it. Everything else is drawn above the strip.
+                items[ "drag_strip" ] = library:create( "Frame" , {
+                    Parent = items[ "main" ];
+                    Name = "VoidHubDragStrip";
+                    Active = true;
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    Position = dim2(0, 0, 0, 0);
+                    Size = dim2(1, 0, 0, 56);
+                    ZIndex = 1;
+                });
+
                 if cfg.close_button_enabled then
                     items[ "close" ] = library:create( "TextButton" , {
                         Parent = items[ "main" ];
@@ -1397,7 +1412,7 @@
                     BackgroundColor3 = rgb(30, 30, 30)
                 });
                 
-                items[ "button_holder" ] = library:create( "Frame" , {
+                items[ "button_holder" ] = library:create( "ScrollingFrame" , {
                     Parent = items[ "side_frame" ];
                     Name = "\0";
                     BackgroundTransparency = 1;
@@ -1405,7 +1420,12 @@
                     BorderColor3 = rgb(0, 0, 0);
                     Size = dim2(1, 0, 1, -66);
                     BorderSizePixel = 0;
-                    BackgroundColor3 = rgb(255, 255, 255)
+                    BackgroundColor3 = rgb(255, 255, 255);
+                    ScrollingDirection = Enum.ScrollingDirection.Y;
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y;
+                    CanvasSize = dim2(0, 0, 0, 0);
+                    ScrollBarThickness = 0;
+                    ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
                 }); cfg.button_holder = items[ "button_holder" ];
                 
                 library:create( "UIListLayout" , {
@@ -1654,7 +1674,7 @@
             end 
 
             do -- Other
-                library:draggify(items[ "main" ])
+                library:draggify(items[ "main" ], items[ "drag_strip" ])
                 library:resizify(items[ "main" ])
             end 
 
@@ -2099,9 +2119,10 @@
                     parts.tooltip = library:Tooltip(lock_button, "Lock window")
                 end
 
+                -- default spot: directly below the floating toggle, otherwise beside the window
                 if not cfg.lock_toggle_position then
-                    task.defer(function()
-                        if not lock_button.Parent or not items[ "main" ] then
+                    task.delay(0.15, function()
+                        if not lock_button.Parent then
                             return
                         end
 
@@ -2111,12 +2132,31 @@
                             return
                         end
 
-                        local size = lock_button.AbsoluteSize
-                        local x = items[ "main" ].AbsolutePosition.X + items[ "main" ].AbsoluteSize.X + 10
-                        local y = items[ "main" ].AbsolutePosition.Y + items[ "main" ].AbsoluteSize.Y - size.Y - 8
-                        x = clamp(x, 4, max(4, viewport.X - size.X - 4))
-                        y = clamp(y, 4, max(4, viewport.Y - size.Y - 4))
-                        lock_button.Position = dim_offset(x, y + get_gui_offset())
+                        local lock_size = lock_button.AbsoluteSize
+                        local width = lock_size.X > 0 and lock_size.X or 36
+                        local height = lock_size.Y > 0 and lock_size.Y or 36
+                        local x, y
+                        local mobile_button = cfg.mobile_toggle_button
+
+                        if mobile_button and library[ "mobile_toggle" ] and library[ "mobile_toggle" ].Enabled then
+                            local mobile_position = mobile_button.Position
+                            local mobile_size = mobile_button.Size
+                            x = mobile_position.X.Offset + (mobile_size.X.Offset - width) / 2
+                            y = mobile_position.Y.Offset + mobile_size.Y.Offset + 8
+                        elseif items[ "main" ] then
+                            local main = items[ "main" ]
+                            x = main.AbsolutePosition.X - width - 10
+                            if x < 4 then
+                                x = main.AbsolutePosition.X + main.AbsoluteSize.X + 10
+                            end
+                            y = main.AbsolutePosition.Y + get_gui_offset() + 8
+                        end
+
+                        if x and y then
+                            x = clamp(x, 4, max(4, viewport.X - width - 4))
+                            y = clamp(y, 4, max(4, viewport.Y - height - 4))
+                            lock_button.Position = dim_offset(x, y)
+                        end
                     end)
                 end
             end
@@ -2224,15 +2264,22 @@
                 -- 
 
                 -- Multi Sections
-                    items[ "multi_section_button_holder" ] = library:create( "Frame" , {
+                    -- scrolls sideways when the window is too narrow to show every sub-tab
+                    items[ "multi_section_button_holder" ] = library:create( "ScrollingFrame" , {
                         Parent = library.cache;
                         BackgroundTransparency = 1;
                         Name = "\0";
                         Visible = false;
                         BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, 0, 1, 0);
+                        Size = dim2(1, -56, 1, 0);
                         BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
+                        BackgroundColor3 = rgb(255, 255, 255);
+                        ScrollingDirection = Enum.ScrollingDirection.X;
+                        AutomaticCanvasSize = Enum.AutomaticSize.X;
+                        CanvasSize = dim2(0, 0, 0, 0);
+                        ScrollBarThickness = 0;
+                        ElasticBehavior = Enum.ElasticBehavior.WhenScrollable;
+                        ClipsDescendants = true
                     });
                     
                     library:create( "UIListLayout" , {
@@ -2728,6 +2775,7 @@
                 auto_size = auto_size == true;
                 min_height = max(0, min_height);
                 max_height = max(max(0, min_height), max_height);
+                fit_rows = tonumber(properties.fit_rows or properties.fitRows);
                 expanded_height = max(0, min_height);
                 items = {};
             };
@@ -2823,7 +2871,15 @@
 
                         local content_height = items[ "elements_layout" ].AbsoluteContentSize.Y / ui_scale
                         local desired_height = max(cfg.min_height, content_height + 25)
-                        local visible_height = min(desired_height, cfg.max_height)
+                        local limit = cfg.max_height
+
+                        -- group boxes stretch with the window: each of N stacked boxes may use its share of the column
+                        local column = items[ "outline" ].Parent
+                        if cfg.fit_rows and column and column.AbsoluteSize.Y > 0 then
+                            local available = column.AbsoluteSize.Y / ui_scale
+                            limit = max(cfg.min_height, 110, (available - 14 - (cfg.fit_rows - 1) * 7) / cfg.fit_rows - 37)
+                        end
+                        local visible_height = min(desired_height, limit)
 
                         cfg.expanded_height = visible_height
                         items[ "scrolling" ].Size = dim2(1, 0, 0, visible_height)
@@ -2840,6 +2896,12 @@
 
                     task.defer(function()
                         cfg:update_size()
+                        local column = items[ "outline" ].Parent
+                        if cfg.fit_rows and column then
+                            library:connection(column:GetPropertyChangedSignal("AbsoluteSize"), function()
+                                cfg:update_size()
+                            end)
+                        end
                     end)
                 end
                 
@@ -3439,6 +3501,11 @@
                 options.size = options.size or options.Size or 1
                 if options.default == nil and options.Default == nil then
                     options.default = true
+                end
+
+                -- boxes fill the page height; pass fit = false to use maxHeight as a fixed cap instead
+                if properties.fit ~= false and options.fit ~= false then
+                    options.fit_rows = 2
                 end
 
                 return options

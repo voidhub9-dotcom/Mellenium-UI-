@@ -54,7 +54,6 @@ local combat, visuals, settings = window:tab({
 -- Each page uses a complete responsive 2x2 group-box layout.
 -- Boxes collapse from their headers, fit their controls, and scroll at maxHeight.
 local combatBoxes = combat:groupboxes({
-    maxHeight = 240,
     scroll = true,
     singleColumnWidth = 700,
     boxes = {
@@ -219,7 +218,6 @@ combatBoxes.bottom_right:button({
 })
 
 local visualBoxes = visuals:groupbox_grid({
-    maxHeight = 240,
     scroll = true,
     singleColumnWidth = 700,
     boxes = {
@@ -259,7 +257,6 @@ visualBoxes.bottom_right:slider({
 visualBoxes.bottom_right:status({name = "Renderer", default = "60 FPS"})
 
 local settingsBoxes = settings:group_boxes({
-    maxHeight = 240,
     scroll = true,
     singleColumnWidth = 700,
     boxes = {
