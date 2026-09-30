@@ -15,6 +15,7 @@ A Roblox **Luau** UI library for script executors. Responsive windows that work 
 - [Window lock](#window-lock)
 - [Tabs and layout](#tabs-and-layout)
 - [Controls](#controls)
+- [Canvas](#canvas)
 - [Search, tooltips and dependencies](#search-tooltips-and-dependencies)
 - [Themes and readability](#themes-and-readability)
 - [Notifications](#notifications)
@@ -207,6 +208,7 @@ All controls are created on a section or group box and return the control object
 | `status` | `name`, `default`, `color` | `:Set(text, color)` |
 | `timer` | `duration`, `callback`, `autoStart` | `:Start()`, `:Stop()`, `:Reset()` |
 | `profile` | `name`, `image` | Avatar, FPS, ping and executor |
+| `canvas` | see [Canvas](#canvas) | Free-layout drawing surface with text, frame, image and button widgets |
 
 ```lua
 local Farm = Box:toggle({name = "Auto farm", flag = "farm", default = true})
@@ -219,6 +221,67 @@ Box:button({name = "Reset", confirm = true, confirmMessage = "Reset everything?"
 ```
 
 Read any flag with `Library.flags.farm` (or the `flags` table returned by the library). Keybind flags are tables `{key, mode, active}`; colour flags are `{Color, Transparency}`.
+
+## Canvas
+
+`Section:canvas(options)` creates a free-layout surface: a scrollable area (with an optional search box and a pinned dock strip) where you place text, frames, images and buttons yourself.
+
+All `X`, `Y`, `Width`, `Height` and `Corner` values are in **units**: 1 unit is one text line in pixels, so layouts scale with the text size.
+
+```lua
+local Canvas = Section:canvas({
+    name = "Predictor",
+    search = true,                 -- search box on top
+    placeholder = "Search...",
+    textScale = 0.84,              -- text size multiplier
+    lineHeight = 1.1,
+    minLines = 16,                 -- visible height is clamped between min and max
+    maxLines = 32,
+    autoHeight = false,            -- true: grow with the content instead
+    background = 0.5,              -- background transparency
+    scrollColor = Color3.fromRGB(170, 174, 184),
+    build = function(c) end,       -- called once the canvas exists
+})
+```
+
+**Sizing**
+
+```lua
+Canvas:Unit()               -- pixels per unit
+Canvas:Width()              -- content width in pixels
+Canvas:TextSize()           -- base text size in pixels
+Canvas:OnResize(function(self, widthPx, unitPx) end)
+Canvas:SetContentLines(n)   -- scrollable content height in units (default: lowest widget)
+Canvas:SetTextScale(1.2)
+Canvas:SetDock(2, {Gap = 0.4, DividerColor = Color3.new(1, 1, 1)})  -- pinned top strip, 0 hides it
+Canvas:Dock()               -- the dock Frame, usable as a widget Parent
+Canvas:Root()               -- outer Frame
+Canvas:Query()              -- current search text
+Canvas:OnSearch(function(query) end)
+Canvas:Clear()              -- destroy every widget
+Canvas:Destroy()
+```
+
+**Widgets** all return `w` with `w.Set(patch)`, `w.Spec` (current properties), `w.Instance` and `w.Destroy()`. Text is RichText. Colours are `"#RRGGBB"` or `Color3`.
+
+```lua
+Canvas:Text({Parent, X, Y, Width, Height, Scale, Wrap, Align, Text, Color, Font, Gradient,
+    GradientRotation, TextStrokeTransparency, StrokeThickness, StrokeTransparency, Visible, ZIndex, Name})
+Canvas:Frame({Parent, X, Y, Width, Height, Corner, Background, BackgroundTransparency, Gradient,
+    GradientRotation, StrokeColor, StrokeThickness, StrokeTransparency, Visible, Name})
+Canvas:Image({Parent, X, Y, Width, Height, Image, Corner, Background, BackgroundTransparency,
+    StrokeThickness, StrokeTransparency, Visible, ZIndex})
+Canvas:Button({Parent, X, Y, Width, Height, Text, Scale, Color, Background, BackgroundTransparency,
+    HoverTransparency, PressTransparency, Corner, StrokeColor, StrokeThickness, StrokeTransparency,
+    Visible, ZIndex, Name, Callback})
+```
+
+`Parent` defaults to the scrolling area; pass `Canvas:Dock()` or another widget to nest. Omit `Width` to fill the remaining width.
+
+```lua
+local Title = Canvas:Text({X = 0, Y = 0, Text = "<b>Ready</b>", Color = "#F5F5F5"})
+Title.Set({Text = "Updated", X = 1, Width = 12})
+```
 
 ## Search, tooltips and dependencies
 

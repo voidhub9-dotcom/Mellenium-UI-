@@ -8687,6 +8687,583 @@ do
         return control
     end
 
+    -- Canvas: free-layout surface. Widget X / Y / Width / Height are in units (1 unit = 1 text line).
+    local function canvas_color(value, fallback)
+        if typeof(value) == "Color3" then
+            return value
+        end
+        if type(value) == "string" then
+            local digits = string.match(value, "^#?(%x%x%x%x%x%x)$")
+            if digits then
+                return rgb(
+                    tonumber(string.sub(digits, 1, 2), 16),
+                    tonumber(string.sub(digits, 3, 4), 16),
+                    tonumber(string.sub(digits, 5, 6), 16)
+                )
+            end
+        end
+        return fallback
+    end
+
+    local function canvas_align(value)
+        local align = string.lower(tostring(value or "left"))
+        if align == "center" then
+            return Enum.TextXAlignment.Center
+        elseif align == "right" then
+            return Enum.TextXAlignment.Right
+        end
+        return Enum.TextXAlignment.Left
+    end
+
+    function library:canvas(options)
+        options = options or {}
+
+        local cfg = {
+            name = options.name;
+            items = {};
+            widgets = {};
+            resize_handlers = {};
+            search_handlers = {};
+            text_scale = tonumber(options.textScale or options.text_scale) or 1;
+            line_height = tonumber(options.lineHeight or options.line_height) or 1.1;
+            min_lines = tonumber(options.minLines or options.min_lines) or 6;
+            max_lines = tonumber(options.maxLines or options.max_lines) or 24;
+            auto_height = (options.autoHeight or options.auto_height) == true;
+            background = tonumber(options.background) or 0.5;
+            scroll_color = options.scrollColor or options.scroll_color or rgb(170, 174, 184);
+            explicit_lines = nil;
+            widget_lines = 0;
+            dock_lines = 0;
+            dock_gap = 0.4;
+            dock_divider = rgb(60, 60, 60);
+            query = "";
+            last_width = 0;
+            destroyed = false;
+        }
+        cfg.max_lines = max(cfg.min_lines, cfg.max_lines)
+
+        local items = cfg.items
+        local parts = {}
+        cfg.parts = parts
+        local padding = 6
+        local search_enabled = options.search == true
+        local show_title = cfg.name ~= nil and options.showTitle ~= false
+
+        items.canvas = library:create("Frame", {
+            Parent = self.items[ "elements" ];
+            Name = "VoidHubCanvas";
+            Size = dim2(1, 0, 0, 100);
+            BackgroundColor3 = rgb(9, 9, 9);
+            BackgroundTransparency = cfg.background;
+            BorderSizePixel = 0;
+        })
+        library:create("UICorner", {Parent = items.canvas; CornerRadius = dim(0, 8)})
+        library:create("UIStroke", {
+            Parent = items.canvas;
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+            Color = rgb(42, 42, 42);
+            Thickness = 1;
+        })
+
+        if show_title then
+            parts.title = library:create("TextLabel", {
+                Parent = items.canvas;
+                Text = tostring(cfg.name);
+                FontFace = fonts.font;
+                TextSize = 14;
+                TextColor3 = rgb(235, 235, 235);
+                TextXAlignment = Enum.TextXAlignment.Left;
+                BackgroundTransparency = 1;
+                BorderSizePixel = 0;
+                Position = dim2(0, padding + 2, 0, padding);
+                Size = dim2(1, -(padding * 2 + 4), 0, 18);
+            })
+        end
+
+        if search_enabled then
+            parts.search_holder = library:create("Frame", {
+                Parent = items.canvas;
+                BackgroundColor3 = rgb(26, 26, 26);
+                BorderSizePixel = 0;
+                Size = dim2(1, -(padding * 2), 0, 28);
+            })
+            library:create("UICorner", {Parent = parts.search_holder; CornerRadius = dim(0, 7)})
+            parts.search_stroke = library:create("UIStroke", {
+                Parent = parts.search_holder;
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                Color = rgb(58, 58, 58);
+                Thickness = 1;
+            })
+            parts.search = library:create("TextBox", {
+                Parent = parts.search_holder;
+                Position = dim2(0, 10, 0, 0);
+                Size = dim2(1, -20, 1, 0);
+                BackgroundTransparency = 1;
+                BorderSizePixel = 0;
+                ClearTextOnFocus = false;
+                Text = "";
+                PlaceholderText = options.placeholder or "Search...";
+                PlaceholderColor3 = rgb(140, 140, 146);
+                TextColor3 = rgb(235, 235, 235);
+                TextXAlignment = Enum.TextXAlignment.Left;
+                FontFace = fonts.small;
+                TextSize = 14;
+            })
+
+            parts.search.Focused:Connect(function()
+                library:tween(parts.search_stroke, {Color = themes.preset.accent}, Enum.EasingStyle.Quad, 0.12)
+            end)
+            parts.search.FocusLost:Connect(function()
+                library:tween(parts.search_stroke, {Color = rgb(58, 58, 58)}, Enum.EasingStyle.Quad, 0.12)
+            end)
+        end
+
+        parts.dock = library:create("Frame", {
+            Parent = items.canvas;
+            Name = "Dock";
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            ClipsDescendants = true;
+            Visible = false;
+            Size = dim2(1, -(padding * 2), 0, 0);
+        })
+
+        parts.divider = library:create("Frame", {
+            Parent = items.canvas;
+            Name = "DockDivider";
+            BackgroundColor3 = cfg.dock_divider;
+            BorderSizePixel = 0;
+            Visible = false;
+            Size = dim2(1, -(padding * 2), 0, 1);
+        })
+
+        parts.scroll = library:create("ScrollingFrame", {
+            Parent = items.canvas;
+            Name = "Scroll";
+            BackgroundTransparency = 1;
+            BorderSizePixel = 0;
+            ClipsDescendants = true;
+            CanvasSize = dim2(0, 0, 0, 0);
+            ScrollBarThickness = 3;
+            ScrollBarImageColor3 = cfg.scroll_color;
+            ScrollingDirection = Enum.ScrollingDirection.Y;
+            Size = dim2(1, -(padding * 2), 0, 100);
+        })
+
+        -- units -----------------------------------------------------------
+        function cfg:TextSize()
+            return max(8, floor(16 * self.text_scale + 0.5))
+        end
+
+        function cfg:Unit()
+            return max(6, floor(self:TextSize() * self.line_height + 0.5))
+        end
+
+        function cfg:Width()
+            local width = parts.scroll.AbsoluteSize.X
+            if width <= 0 then
+                return 200
+            end
+            return max(0, width / library:get_ui_scale() - 4)
+        end
+
+        function cfg:Root()
+            return items.canvas
+        end
+
+        function cfg:Dock()
+            return parts.dock
+        end
+
+        function cfg:Query()
+            return cfg.query
+        end
+
+        local function content_pixels()
+            local lines = cfg.explicit_lines or cfg.widget_lines
+            return max(0, lines) * cfg:Unit()
+        end
+
+        local function relayout()
+            if cfg.destroyed or not items.canvas.Parent then
+                return
+            end
+
+            local unit = cfg:Unit()
+            local y = padding
+
+            if parts.title then
+                y += 20
+            end
+
+            if parts.search_holder then
+                parts.search_holder.Position = dim2(0, padding, 0, y)
+                y += 34
+            end
+
+            if cfg.dock_lines > 0 then
+                local dock_height = cfg.dock_lines * unit
+                local gap = cfg.dock_gap * unit
+                parts.dock.Visible = true
+                parts.dock.Position = dim2(0, padding, 0, y)
+                parts.dock.Size = dim2(1, -(padding * 2), 0, dock_height)
+                parts.divider.Visible = true
+                parts.divider.BackgroundColor3 = cfg.dock_divider
+                parts.divider.Position = dim2(0, padding, 0, y + dock_height + floor(gap / 2))
+                y += dock_height + gap
+            else
+                parts.dock.Visible = false
+                parts.divider.Visible = false
+            end
+
+            local content = content_pixels()
+            local viewport
+            if cfg.auto_height then
+                viewport = max(content, unit)
+            else
+                viewport = clamp(content, cfg.min_lines * unit, cfg.max_lines * unit)
+            end
+
+            parts.scroll.Position = dim2(0, padding, 0, y)
+            parts.scroll.Size = dim2(1, -(padding * 2), 0, viewport)
+            parts.scroll.CanvasSize = dim2(0, 0, 0, content)
+            y += viewport + padding
+
+            items.canvas.Size = dim2(1, 0, 0, y)
+
+            for _, widget in cfg.widgets do
+                widget.apply()
+            end
+        end
+
+        local function fire_resize()
+            local width, unit = cfg:Width(), cfg:Unit()
+            for _, handler in cfg.resize_handlers do
+                task.spawn(handler, cfg, width, unit)
+            end
+        end
+
+        function cfg:OnResize(callback)
+            insert(cfg.resize_handlers, callback)
+            return {
+                Disconnect = function()
+                    local index = find(cfg.resize_handlers, callback)
+                    if index then remove(cfg.resize_handlers, index) end
+                end
+            }
+        end
+
+        function cfg:OnSearch(callback)
+            insert(cfg.search_handlers, callback)
+            return {
+                Disconnect = function()
+                    local index = find(cfg.search_handlers, callback)
+                    if index then remove(cfg.search_handlers, index) end
+                end
+            }
+        end
+
+        function cfg:SetContentLines(lines)
+            cfg.explicit_lines = tonumber(lines)
+            relayout()
+            return cfg
+        end
+
+        function cfg:SetDock(lines, dock_options)
+            dock_options = dock_options or {}
+            cfg.dock_lines = max(0, tonumber(lines) or 0)
+            cfg.dock_gap = tonumber(dock_options.Gap or dock_options.gap) or cfg.dock_gap
+            cfg.dock_divider = canvas_color(dock_options.DividerColor or dock_options.dividerColor, cfg.dock_divider)
+            relayout()
+            return cfg
+        end
+
+        function cfg:SetTextScale(scale)
+            cfg.text_scale = clamp(tonumber(scale) or 1, 0.4, 3)
+            relayout()
+            fire_resize()
+            return cfg
+        end
+
+        -- widgets ---------------------------------------------------------
+        local function resolve_parent(parent)
+            if typeof(parent) == "Instance" then
+                return parent
+            end
+            if type(parent) == "table" then
+                if typeof(parent.Instance) == "Instance" then
+                    return parent.Instance
+                end
+                if type(parent.Dock) == "function" then
+                    return parent:Dock()
+                end
+            end
+            return parts.scroll
+        end
+
+        local function apply_stroke(widget, stroke)
+            local spec = widget.spec
+            local thickness = (tonumber(spec.StrokeThickness) or 0) * cfg:Unit()
+            stroke.Enabled = thickness > 0
+            stroke.Thickness = max(0.5, thickness)
+            stroke.Transparency = tonumber(spec.StrokeTransparency) or 0
+            if spec.StrokeColor ~= nil then
+                stroke.Color = canvas_color(spec.StrokeColor, rgb(255, 255, 255))
+            end
+        end
+
+        local function apply_gradient(widget, gradient)
+            local spec = widget.spec
+            gradient.Enabled = spec.Gradient ~= nil
+            if spec.Gradient ~= nil then
+                gradient.Color = spec.Gradient
+            end
+            gradient.Rotation = tonumber(spec.GradientRotation) or 0
+        end
+
+        local function make_widget(kind, spec)
+            spec = spec or {}
+            local widget = {spec = spec; Spec = spec; kind = kind}
+            local unit_of = function() return cfg:Unit() end
+
+            local class = kind == "Text" and "TextLabel"
+                or kind == "Button" and "TextButton"
+                or kind == "Image" and "ImageLabel"
+                or "Frame"
+
+            local instance = library:create(class, {
+                Parent = resolve_parent(spec.Parent);
+                Name = spec.Name or kind;
+                BorderSizePixel = 0;
+                BackgroundTransparency = 1;
+            })
+            widget.Instance = instance
+
+            local corner, stroke, gradient
+            local text_stroke
+
+            if kind ~= "Text" then
+                corner = library:create("UICorner", {Parent = instance; CornerRadius = dim(0, 0)})
+            end
+            stroke = library:create("UIStroke", {
+                Parent = instance;
+                ApplyStrokeMode = kind == "Text" and Enum.ApplyStrokeMode.Contextual or Enum.ApplyStrokeMode.Border;
+                Enabled = false;
+                Color = rgb(255, 255, 255);
+            })
+            if kind ~= "Image" then
+                gradient = library:create("UIGradient", {Parent = instance; Enabled = false})
+            end
+
+            if kind == "Button" then
+                local hovering, pressing = false, false
+                local function shade()
+                    local base = tonumber(spec.BackgroundTransparency) or 0
+                    local target = base
+                    if pressing then
+                        target = tonumber(spec.PressTransparency) or min(1, base + 0.18)
+                    elseif hovering then
+                        target = tonumber(spec.HoverTransparency) or max(0, base - 0.12)
+                    end
+                    library:tween(instance, {BackgroundTransparency = target}, Enum.EasingStyle.Quad, 0.1)
+                end
+                instance.MouseEnter:Connect(function() hovering = true; shade() end)
+                instance.MouseLeave:Connect(function() hovering = false; pressing = false; shade() end)
+                instance.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        pressing = true
+                        shade()
+                    end
+                end)
+                instance.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        pressing = false
+                        shade()
+                    end
+                end)
+                instance.Activated:Connect(function()
+                    if type(spec.Callback) == "function" then
+                        spec.Callback(widget)
+                    end
+                end)
+                instance.AutoButtonColor = false
+                instance.Selectable = false
+            end
+
+            function widget.apply()
+                if not instance.Parent and not widget.destroyed then
+                    return
+                end
+
+                local unit = unit_of()
+                local x = tonumber(spec.X) or 0
+                local y = tonumber(spec.Y) or 0
+                local width = tonumber(spec.Width)
+                local height = tonumber(spec.Height) or 1
+
+                instance.Position = dim2(0, floor(x * unit + 0.5), 0, floor(y * unit + 0.5))
+                if width then
+                    instance.Size = dim2(0, floor(width * unit + 0.5), 0, floor(height * unit + 0.5))
+                else
+                    instance.Size = dim2(1, -floor(x * unit + 0.5), 0, floor(height * unit + 0.5))
+                end
+
+                instance.Visible = spec.Visible ~= false
+                instance.ZIndex = tonumber(spec.ZIndex) or instance.ZIndex
+                if spec.Name then instance.Name = tostring(spec.Name) end
+
+                if corner then
+                    corner.CornerRadius = dim(0, floor((tonumber(spec.Corner) or 0) * unit + 0.5))
+                end
+
+                if kind == "Text" or kind == "Button" then
+                    local scale = tonumber(spec.Scale) or 1
+                    instance.TextSize = max(6, floor(cfg:TextSize() * scale + 0.5))
+                    instance.RichText = true
+                    instance.Text = tostring(spec.Text or "")
+                    instance.TextColor3 = spec.Gradient ~= nil and rgb(255, 255, 255)
+                        or canvas_color(spec.Color, rgb(235, 235, 235))
+
+                    local font = spec.Font
+                    if typeof(font) == "Font" then
+                        instance.FontFace = font
+                    elseif typeof(font) == "EnumItem" then
+                        instance.Font = font
+                    else
+                        instance.FontFace = fonts.small
+                    end
+                end
+
+                if kind == "Text" then
+                    instance.TextWrapped = spec.Wrap == true
+                    instance.TextXAlignment = canvas_align(spec.Align)
+                    instance.TextYAlignment = spec.Wrap == true and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+                    instance.TextStrokeTransparency = tonumber(spec.TextStrokeTransparency) or 1
+                    instance.BackgroundTransparency = 1
+                elseif kind == "Button" then
+                    instance.BackgroundColor3 = canvas_color(spec.Background, rgb(26, 26, 26))
+                    instance.TextXAlignment = Enum.TextXAlignment.Center
+                    instance.BackgroundTransparency = tonumber(spec.BackgroundTransparency) or 0
+                elseif kind == "Image" then
+                    local image = spec.Image
+                    if type(image) == "number" then
+                        image = "rbxassetid://" .. tostring(image)
+                    end
+                    instance.Image = tostring(image or "")
+                    instance.BackgroundColor3 = canvas_color(spec.Background, rgb(0, 0, 0))
+                    instance.BackgroundTransparency = tonumber(spec.BackgroundTransparency) or 1
+                else
+                    instance.BackgroundColor3 = canvas_color(spec.Background, rgb(26, 26, 26))
+                    instance.BackgroundTransparency = tonumber(spec.BackgroundTransparency) or 0
+                end
+
+                apply_stroke(widget, stroke)
+                if gradient then
+                    apply_gradient(widget, gradient)
+                end
+
+                -- keep the scroll height in step with the lowest widget when no explicit height is set
+                if instance.Parent == parts.scroll then
+                    local bottom = y + height
+                    if bottom > cfg.widget_lines then
+                        cfg.widget_lines = bottom
+                        if not cfg.explicit_lines then
+                            widget.dirty_layout = true
+                        end
+                    end
+                end
+            end
+
+            function widget.Set(patch)
+                if type(patch) == "table" then
+                    for key, value in patch do
+                        spec[key] = value
+                    end
+                    if patch.Parent ~= nil then
+                        instance.Parent = resolve_parent(patch.Parent)
+                    end
+                end
+                widget.apply()
+                if widget.dirty_layout then
+                    widget.dirty_layout = false
+                    relayout()
+                end
+                return widget
+            end
+
+            function widget.Destroy()
+                widget.destroyed = true
+                local index = find(cfg.widgets, widget)
+                if index then remove(cfg.widgets, index) end
+                if instance.Parent then instance:Destroy() end
+            end
+            widget.destroy = widget.Destroy
+
+            insert(cfg.widgets, widget)
+            widget.apply()
+            if widget.dirty_layout then
+                widget.dirty_layout = false
+                relayout()
+            end
+            return widget
+        end
+
+        function cfg:Text(spec) return make_widget("Text", spec) end
+        function cfg:Frame(spec) return make_widget("Frame", spec) end
+        function cfg:Image(spec) return make_widget("Image", spec) end
+        function cfg:Button(spec) return make_widget("Button", spec) end
+
+        function cfg:Clear()
+            for index = #cfg.widgets, 1, -1 do
+                cfg.widgets[index].Destroy()
+            end
+            cfg.widget_lines = 0
+            relayout()
+            return cfg
+        end
+
+        function cfg:Destroy()
+            if cfg.destroyed then return end
+            cfg.destroyed = true
+            table.clear(cfg.widgets)
+            table.clear(cfg.resize_handlers)
+            table.clear(cfg.search_handlers)
+            if items.canvas.Parent then items.canvas:Destroy() end
+        end
+
+        if parts.search then
+            parts.search:GetPropertyChangedSignal("Text"):Connect(function()
+                cfg.query = parts.search.Text
+                for _, handler in cfg.search_handlers do
+                    task.spawn(handler, cfg.query, cfg)
+                end
+            end)
+        end
+
+        parts.scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            local width = cfg:Width()
+            if abs(width - cfg.last_width) > 0.5 then
+                cfg.last_width = width
+                fire_resize()
+            end
+        end)
+
+        relayout()
+        if type(options.build) == "function" then
+            options.build(cfg)
+        end
+        task.defer(function()
+            if cfg.destroyed then return end
+            relayout()
+            cfg.last_width = cfg:Width()
+            fire_resize()
+        end)
+
+        return library:_register_control(setmetatable(cfg, library), "canvas", options)
+    end
+
     function library:groupboxes(properties)
         properties = properties or {}
         local boxes = base_groupboxes(self, properties)

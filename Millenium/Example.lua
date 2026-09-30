@@ -256,6 +256,37 @@ visualBoxes.bottom_right:slider({
 })
 visualBoxes.bottom_right:status({name = "Renderer", default = "60 FPS"})
 
+-- Canvas: free-layout surface, positions are in text-line units
+local demoCanvas = visualBoxes.bottom_left:canvas({
+    name = "Canvas demo",
+    search = true,
+    placeholder = "Filter rows...",
+    textScale = 0.84,
+    minLines = 8,
+    maxLines = 14
+})
+demoCanvas:SetDock(1.4, {Gap = 0.4, DividerColor = Color3.fromRGB(70, 70, 70)})
+local dockLabel = demoCanvas:Text({Parent = demoCanvas:Dock(), X = 0.2, Y = 0.1, Text = "<b>Rows</b> 0", Color = "#F5F5F5"})
+local rows = {}
+for index, name in {"Common egg", "Rare egg", "Epic egg", "Mythic egg", "Lab egg", "Fuse egg"} do
+    local y = 0.2 + (index - 1) * 1.6
+    rows[name] = {
+        frame = demoCanvas:Frame({X = 0, Y = y, Height = 1.4, Corner = 0.3, Background = "#1A1A1A", StrokeColor = "#3A3A3A", StrokeThickness = 0.06}),
+        label = demoCanvas:Text({X = 0.5, Y = y + 0.2, Height = 1, Width = 10, Text = name, Color = "#DCDCDC"})
+    }
+end
+demoCanvas:OnSearch(function(query)
+    local visible, shown = string.lower(query), 0
+    for name, row in rows do
+        local match = visible == "" or string.find(string.lower(name), visible, 1, true) ~= nil
+        row.frame.Set({Visible = match})
+        row.label.Set({Visible = match})
+        if match then shown += 1 end
+    end
+    dockLabel.Set({Text = "<b>Rows</b> " .. shown})
+end)
+dockLabel.Set({Text = "<b>Rows</b> 6"})
+
 local settingsBoxes = settings:group_boxes({
     scroll = true,
     singleColumnWidth = 700,
