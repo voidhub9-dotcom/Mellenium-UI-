@@ -77,7 +77,9 @@ Library:init_config(Window)         -- adds the Configs page (call last)
 | Option | Type | Purpose |
 | --- | --- | --- |
 | `name`, `suffix` | string | Title text (`name` is underlined, `suffix` is white) |
-| `gameInfo` | string | Subtitle under the title |
+| `icon` / `logo` | asset id | Image inside the logo tile (default: first letter of `name`) |
+| `gameInfo` / `subtitle` | string | Subtitle under the title and in the footer |
+| `footer` / `version` | string | Right-aligned footer text |
 | `customSize` | `{width, height}` or `UDim2` | Design size of the window |
 | `autoDPI` | bool | Scale the window to the viewport |
 | `dpiScale` | number | Manual multiplier applied before auto scaling |
@@ -95,7 +97,10 @@ The window, resize handle, floating button, drawers and overlays are clamped to 
 ```lua
 Window:set_size(900, 650)
 Window:set_auto_dpi(true)
-Window.toggle_menu(true)     -- show / hide (also bound to the "Menu Bind" keybind in Configs)
+Window.toggle_menu(true)     -- show / hide (also bound to the "Menu key" keybind in Configs)
+Window:set_title("VoidHub", "Pro")   -- also :SetTitle
+Window:set_subtitle("Blox Fruits")   -- also :SetSubtitle
+Window:set_footer("v1.4")            -- also :SetFooter
 ```
 
 `mobileToggle = {enabled, icon, shape = "square" | "circle", size, mobileOnly, showWhenOpen, draggable}` configures the draggable floating button. Taps toggle the window; dragging moves the button without toggling.
@@ -138,7 +143,16 @@ print(Window:is_locked())   -- also :IsLocked()
 local A, B, C = Window:tab({name = "Main", icon = "rbxassetid://…", tabs = {"A", "B", "C"}})
 ```
 
-`Window:tab` returns one sub-tab object per name in `tabs`.
+`Window:tab` returns one page object per name in `tabs`. The active sidebar tab is a filled pill (text and icon switch to black or white depending on the accent), sub-tabs use an underline, and both have hover states.
+
+```lua
+Window:select_tab("Main")               -- by name or index (also :SelectTab)
+Window:select_tab("Main", "Visuals")    -- and a sub-tab, by name or index
+local Tab = Window:get_tab("Main")      -- also :GetTab
+Tab.set_visible(false)                  -- hide/show its sidebar button (falls back to another tab)
+Tab.set_name("Home")
+A.select()                              -- select this page (and its tab); pages also have .title
+```
 
 ### Group boxes (2x2 grid)
 
@@ -220,7 +234,7 @@ Slider:DependsOn("distance", function(v) return v >= 100 end, "visible")
 
 ## Themes and readability
 
-Text on dark surfaces meets at least a 4.5:1 contrast ratio by default: primary text `245`, secondary text about `170`, inactive text about `150`, placeholders `140` on the `33` control background. Switch tracks and outlines have distinct off states so a toggle is readable at a glance.
+The default **Void** theme is strict black and white: neutral greys only (window `9`, panel `14`, surface `17`, control `26`) and a white accent. Text stays above 4.5:1 on every surface: primary `245`, secondary `170`, inactive `154`, placeholders `140`. Anything drawn on the accent (active tab, switch knob, checkmark, confirm button, logo tile) uses `Library:on_accent(color)`, which returns near-black or white depending on the accent, so custom accents stay readable.
 
 ```lua
 Library:ApplyTheme("Ocean")             -- Void, Ocean, Emerald, Crimson, Mono
@@ -287,7 +301,20 @@ Drawers stay inside the window, follow it when it is resized, and close from the
 ## Configs
 
 ```lua
-Library:init_config(Window)     -- adds a "Configs" page: list, name box, Save / Load / Delete, accent, menu bind
+Library:init_config(Window)     -- adds a "Configs" tab, call it after every control exists
+```
+
+The page has two sub-tabs:
+
+- **Profiles**: list of saved configs, a name box, Save, Load, Delete (with confirm), Duplicate, Use as autoload / Clear autoload, copy to and import from the clipboard (needs `setclipboard` / `getclipboard`), plus Auto save with an interval slider.
+- **Interface**: theme preset and transparency, accent colour, menu key, a Lock window toggle (kept in sync with the padlock), and Unload UI (with confirm).
+
+Flags that start with `cfgui_` belong to this page and are never written into a config. Everything else is.
+
+```lua
+Library:SetAutoload("Main")     -- load "Main" automatically the next time init_config runs
+print(Library:GetAutoload())
+Library:LoadAutoload()
 ```
 
 ```lua

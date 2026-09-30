@@ -4,6 +4,7 @@ local window = library:window({
     name = "VoidHub",
     suffix = "UI",
     gameInfo = "VoidHub UI",
+    footer = "v1.0",
     autoDPI = true,
     autoMinimize = {width = 900, height = 600},
     customSize = {width = 760, height = 500},
@@ -381,8 +382,11 @@ settingsBoxes.bottom_right:button({
     end
 })
 
--- Adds the built-in Save, Load, and Delete config page after all flags exist.
+-- Adds the Configs page (Profiles + Interface) after all flags exist.
 library:init_config(window)
+
+-- Tab helpers
+window:select_tab("Main", "Combat")
 
 -- Advanced config helpers:
 -- library:SetConfigScope("game")
