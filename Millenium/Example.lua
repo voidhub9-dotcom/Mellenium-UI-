@@ -185,6 +185,24 @@ local filtersTab = targetModes:AddTab({name = "Filters", icon = icons.visual})
 filtersTab:toggle({name = "Players only", seperator = true})
 filtersTab:colorpicker({name = "Filter color"})
 
+-- Extra control showcase in Combat > Tools
+combatBoxes.bottom_right:label({name = "Controls showcase", info = "Everything below is live."})
+combatBoxes.bottom_right:toggle({name = "Checkbox style", type = "checkbox", flag = "demo_checkbox", seperator = true})
+combatBoxes.bottom_right:textbox({name = "Webhook name", placeholder = "type here...", flag = "demo_text"})
+combatBoxes.bottom_right:dropdown({
+    name = "Priority",
+    flag = "demo_priority",
+    items = {"Low", "Normal", "High", "Critical"},
+    default = "Normal"
+})
+combatBoxes.bottom_right:multi_dropdown({
+    name = "Notify on",
+    flag = "demo_notify",
+    items = {"Kill", "Death", "Level up", "Drop", "Boss"},
+    default = {"Kill", "Drop", "Boss"}
+})
+combatBoxes.bottom_right:colorpicker({name = "Highlight", flag = "demo_color"})
+
 local visualBoxes = visuals:groupbox_grid({
     maxHeight = 240,
     scroll = true,
