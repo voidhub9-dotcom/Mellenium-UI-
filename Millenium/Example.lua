@@ -52,7 +52,7 @@ local combat, visuals, settings = window:tab({
 })
 
 -- Each page uses a complete responsive 2x2 group-box layout.
--- Boxes collapse from their headers, fit their controls, and scroll at maxHeight.
+-- Boxes collapse from their headers and stretch with the window, scrolling inside when needed.
 local combatBoxes = combat:groupboxes({
     scroll = true,
     singleColumnWidth = 700,
