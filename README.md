@@ -126,7 +126,7 @@ local Window = Library:window({
 What locking does:
 
 - Window dragging is disabled and the **resize handle is hidden**.
-- The padlock is drawn from frames (no emoji font needed): a white button with a closed lock when locked, a dark button with an open shackle when unlocked. Hovering shows a tooltip.
+- The handle is a small draggable tile with a Lucide lock icon centred in it: a dark tile with the open lock when unlocked, an accent-coloured tile with the closed lock when locked. Hovering shows a tooltip.
 - The padlock hides together with the menu, so it never floats around on its own.
 
 Control it from code:

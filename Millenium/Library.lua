@@ -1895,7 +1895,7 @@
             end
 
             -- Lock: freezes dragging and resizing of the window. The handle is a
-            -- separate draggable padlock drawn from frames (no emoji dependency).
+            -- small draggable tile showing a Lucide lock / unlock icon.
             function cfg:update_lock_toggle()
                 -- resizing is part of the lock, so the handle disappears while locked
                 local main = items[ "main" ]
@@ -1916,17 +1916,11 @@
                 local parts = self.lock_toggle_parts
                 if lock and parts then
                     local locked = self.locked == true
-                    local glyph = locked and rgb(13, 13, 13) or rgb(225, 225, 230)
 
-                    library:tween(lock, {BackgroundColor3 = locked and themes.preset.accent or rgb(20, 20, 20)}, Enum.EasingStyle.Quad, 0.15)
-                    library:tween(parts.body, {BackgroundColor3 = glyph}, Enum.EasingStyle.Quad, 0.15)
-                    library:tween(parts.keyhole, {BackgroundColor3 = locked and themes.preset.accent or rgb(20, 20, 20)}, Enum.EasingStyle.Quad, 0.15)
-                    parts.shackle_stroke.Color = glyph
-                    parts.stroke.Color = locked and themes.preset.accent or rgb(100, 100, 100)
-                    -- closed shackle sits on the body; open shackle lifts and swings aside
-                    library:tween(parts.shackle, {
-                        Position = locked and dim2(0.5, 0, 0.5, -11) or dim2(0.5, -2, 0.5, -15);
-                    }, Enum.EasingStyle.Back, 0.2)
+                    library:tween(lock, {BackgroundColor3 = locked and themes.preset.accent or rgb(17, 17, 17)}, Enum.EasingStyle.Quad, 0.15)
+                    parts.icon.Image = locked and "rbxassetid://10723434711" or "rbxassetid://10747366027"
+                    library:tween(parts.icon, {ImageColor3 = locked and library:on_accent(themes.preset.accent) or rgb(235, 235, 235)}, Enum.EasingStyle.Quad, 0.15)
+                    parts.stroke.Color = locked and themes.preset.accent or rgb(66, 66, 66)
                     lock.Name = locked and "VoidHubLockHandle_Locked" or "VoidHubLockHandle"
                     if parts.tooltip then
                         parts.tooltip:SetText(locked and "Window locked - click to unlock" or "Window unlocked - click to lock")
@@ -2026,7 +2020,7 @@
                     Active = true;
                     Selectable = false;
                     AutoButtonColor = false;
-                    BackgroundColor3 = rgb(20, 20, 20);
+                    BackgroundColor3 = rgb(17, 17, 17);
                     BackgroundTransparency = 0;
                     BorderSizePixel = 0;
                     Text = "";
@@ -2052,56 +2046,18 @@
                     Thickness = 1
                 })
 
-                -- shackle: hollow rounded frame, drawn first so the body covers its lower half
-                parts.shackle = library:create( "Frame" , {
+                -- Lucide "lock" / "unlock" icon centred in the drag handle
+                parts.icon = library:create( "ImageLabel" , {
                     Parent = lock_button;
-                    Name = "Shackle";
-                    AnchorPoint = vec2(0.5, 0);
-                    Position = dim2(0.5, 0, 0.5, -11);
-                    Size = dim2(0, 12, 0, 16);
-                    BackgroundTransparency = 1;
-                    BorderSizePixel = 0;
-                    ZIndex = 1002
-                })
-                library:create( "UICorner" , {
-                    Parent = parts.shackle;
-                    CornerRadius = dim(0, 7)
-                })
-                parts.shackle_stroke = library:create( "UIStroke" , {
-                    Parent = parts.shackle;
-                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-                    Color = rgb(225, 225, 230);
-                    Thickness = 2
-                })
-
-                parts.body = library:create( "Frame" , {
-                    Parent = lock_button;
-                    Name = "Body";
-                    AnchorPoint = vec2(0.5, 0);
-                    Position = dim2(0.5, 0, 0.5, -2);
-                    Size = dim2(0, 18, 0, 13);
-                    BackgroundColor3 = rgb(225, 225, 230);
-                    BorderSizePixel = 0;
-                    ZIndex = 1003
-                })
-                library:create( "UICorner" , {
-                    Parent = parts.body;
-                    CornerRadius = dim(0, 4)
-                })
-
-                parts.keyhole = library:create( "Frame" , {
-                    Parent = parts.body;
-                    Name = "Keyhole";
+                    Name = "Icon";
                     AnchorPoint = vec2(0.5, 0.5);
                     Position = dim2(0.5, 0, 0.5, 0);
-                    Size = dim2(0, 3, 0, 5);
-                    BackgroundColor3 = rgb(20, 20, 20);
+                    Size = dim2(0, 18, 0, 18);
+                    BackgroundTransparency = 1;
                     BorderSizePixel = 0;
-                    ZIndex = 1004
-                })
-                library:create( "UICorner" , {
-                    Parent = parts.keyhole;
-                    CornerRadius = dim(0, 2)
+                    Image = cfg.locked and "rbxassetid://10723434711" or "rbxassetid://10747366027";
+                    ImageColor3 = rgb(235, 235, 235);
+                    ZIndex = 1002
                 })
 
                 if cfg.lock_toggle_draggable then
