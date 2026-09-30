@@ -5,6 +5,8 @@ local window = library:window({
     suffix = "UI",
     gameInfo = "VoidHub UI",
     footer = "v1.0",
+    -- X asks "Unload?" in a centred dialog. Use closeMode = "hide" to only hide the window.
+    closeMode = "unload",
     autoDPI = true,
     autoMinimize = {width = 900, height = 600},
     customSize = {width = 760, height = 500},
@@ -202,6 +204,19 @@ combatBoxes.bottom_right:multi_dropdown({
     default = {"Kill", "Drop", "Boss"}
 })
 combatBoxes.bottom_right:colorpicker({name = "Highlight", flag = "demo_color"})
+combatBoxes.bottom_right:button({
+    name = "Show confirm dialog",
+    callback = function()
+        library:Confirm({
+            title = "Are you sure?",
+            message = "This is the centred confirmation dialog used by the X button and confirm buttons.",
+            confirmText = "Yes",
+            callback = function()
+                library:Notify({name = "Confirm", info = "Confirmed", type = "success"})
+            end
+        })
+    end
+})
 
 local visualBoxes = visuals:groupbox_grid({
     maxHeight = 240,
