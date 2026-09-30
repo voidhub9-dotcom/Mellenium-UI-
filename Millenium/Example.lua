@@ -10,6 +10,15 @@ local window = library:window({
     dpiScale = 1,
     minDPI = 0.65,
     maxDPI = 1.15,
+    -- Padlock button: freezes dragging and resizing. Draggable, remembers nothing between runs.
+    lockButton = {
+        enabled = true,
+        draggable = true,
+        notify = false,
+        callback = function(locked)
+            print("Window locked:", locked)
+        end
+    },
     mobileToggle = {
         enabled = true,
         icon = "rbxassetid://6034767608",

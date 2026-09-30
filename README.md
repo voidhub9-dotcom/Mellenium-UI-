@@ -1,55 +1,45 @@
 # VoidHub UI
 
-> A responsive Roblox Lua interface library built for clean desktop layouts and touch-first mobile execution.
+A Roblox **Luau** UI library for script executors. Responsive windows that work on desktop and touch, a full control set, saved configs, themes, notifications and a small plugin system, all in one file.
 
 [![GitHub repository](https://img.shields.io/badge/GitHub-voidhub9--dotcom%2FMellenium--UI---181717?logo=github&logoColor=white)](https://github.com/voidhub9-dotcom/Mellenium-UI-)
-[![Roblox Lua](https://img.shields.io/badge/Roblox-Luau-00A2FF?logo=roblox&logoColor=white)](https://create.roblox.com/docs/luau)
+[![Roblox Luau](https://img.shields.io/badge/Roblox-Luau-00A2FF?logo=roblox&logoColor=white)](https://create.roblox.com/docs/luau)
 
-VoidHub UI combines a responsive window system, desktop 2×2 group boxes, nested tab boxes, touch-friendly controls, mobile floating controls, configuration storage, themes, notifications, and extension APIs in one library.
-
-## Highlights
-
-| Area | Included |
-| --- | --- |
-| Responsive UI | Auto-DPI, custom design sizes, automatic minimization, viewport clamping, and resizing |
-| Layout | Desktop 2×2 group boxes, mobile single-column reflow, internal scrolling, collapsible sections, and nested sub-tabs |
-| Controls | Toggles, sliders, dropdowns, multi-dropdowns, color pickers, text boxes, keybinds, buttons, labels, and status components |
-| Mobile | Draggable floating toggle, touch-safe dragging/resizing, mobile-friendly sliders, dropdowns, colors, drawers, and confirmations |
-| Productivity | Search, tooltips, dependencies, themes, profiles, progress bars, timers, keybind management, and notification history |
-| Persistence | Scoped named configs, import/export, duplication, rename, deletion, and autosave |
-| Extensibility | Plugin lifecycle hooks, custom themes, notification center, drawers, and cleanup APIs |
+**Runtime:** Roblox executor environment. The library needs `getgenv`, `loadstring`, `game:HttpGet`, and the file functions `makefolder`, `isfolder`, `writefile`, `readfile`, `isfile`, `listfiles`, `delfile` (used only for configs). The UI is parented to `CoreGui`.
 
 ## Contents
 
-- [Installation](#installation)
+- [Install](#install)
 - [Quick start](#quick-start)
-- [Responsive windows](#responsive-windows)
-- [Tabs and group boxes](#tabs-and-group-boxes)
+- [Window](#window)
+- [Window lock](#window-lock)
+- [Tabs and layout](#tabs-and-layout)
 - [Controls](#controls)
-- [Themes and extensions](#themes-and-extensions)
-- [Drawers and confirmations](#drawers-and-confirmations)
+- [Search, tooltips and dependencies](#search-tooltips-and-dependencies)
+- [Themes and readability](#themes-and-readability)
 - [Notifications](#notifications)
-- [Configuration system](#configuration-system)
+- [Drawers and confirmations](#drawers-and-confirmations)
+- [Configs](#configs)
+- [Discord webhooks](#discord-webhooks)
+- [Plugins](#plugins)
 - [Cleanup](#cleanup)
 - [Project files](#project-files)
 
-## Installation
+## Install
 
-Load the library from the repository's main branch:
-
-~~~lua
+```lua
 local Library = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/voidhub9-dotcom/Mellenium-UI-/refs/heads/main/Millenium/Library.lua"
 ))()
-~~~
+```
 
-The target environment must provide loadstring and game:HttpGet.
+Methods are called with a colon (`Library:window(...)`). A few have PascalCase aliases (`Notify`, `Unload`, `AddSearch`, `Confirm`, `SetLocked` …); the tables below list the names that exist.
 
 ## Quick start
 
-This is a small, runnable starting point. The full feature example is in [Millenium/Example.lua](Millenium/Example.lua).
+A minimal window. The full feature tour lives in [`Millenium/Example.lua`](Millenium/Example.lua).
 
-~~~lua
+```lua
 local Library = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/voidhub9-dotcom/Mellenium-UI-/refs/heads/main/Millenium/Library.lua"
 ))()
@@ -57,426 +47,304 @@ local Library = loadstring(game:HttpGet(
 local Window = Library:window({
     name = "VoidHub",
     suffix = "UI",
-    gameInfo = "Example",
-    autoDPI = true,
-    autoMinimize = {
-        width = 900,
-        height = 600
-    },
-    customSize = {
-        width = 760,
-        height = 500
-    },
-    minDPI = 0.65,
-    maxDPI = 1.15,
-    mobileToggle = {
-        enabled = true,
-        icon = "rbxassetid://6034767608",
-        shape = "square",
-        size = 54,
-        mobileOnly = true,
-        showWhenOpen = true,
-        draggable = true
-    }
+    gameInfo = "My Game",
+    lockButton = true,              -- padlock that freezes move/resize
+    customSize = {width = 760, height = 500},
 })
 
-Window:seperator({name = "Main"})
+Window:seperator({name = "Main"})   -- (sic) the method is spelled "seperator"
 
-local Combat, Visuals, Settings = Window:tab({
+local Combat, Visuals = Window:tab({
     name = "Main",
     icon = "rbxassetid://6034767608",
-    tabs = {"Combat", "Visuals", "Settings"}
+    tabs = {"Combat", "Visuals"},
 })
 
 local Boxes = Combat:groupboxes({
-    maxHeight = 240,
-    scroll = true,
-    singleColumnWidth = 700,
-    boxes = {
-        {name = "Auto Farm"},
-        {name = "Targeting"},
-        {name = "Movement"},
-        {name = "Combat Tools"}
-    }
+    boxes = {{name = "Auto Farm"}, {name = "Targeting"}, {name = "Movement"}, {name = "Tools"}},
 })
 
-Boxes.top_left:toggle({
-    name = "Enable feature",
-    flag = "feature_enabled"
-})
+Boxes.top_left:toggle({name = "Enable", flag = "farm", default = true})
+Boxes.top_left:slider({name = "Distance", flag = "distance", min = 0, max = 100, default = 25})
 
-Boxes.top_left:slider({
-    name = "Amount",
-    flag = "feature_amount",
-    min = 0,
-    max = 100,
-    interval = 1,
-    default = 50
-})
-~~~
+Library:init_config(Window)         -- adds the Configs page (call last)
+```
 
-## Responsive windows
+## Window
 
-VoidHub uses a design-space size and scales it against the active camera viewport.
+`Library:window(options)` builds the main window and returns the window object.
 
-~~~lua
+| Option | Type | Purpose |
+| --- | --- | --- |
+| `name`, `suffix` | string | Title text (`name` is underlined, `suffix` is white) |
+| `gameInfo` | string | Subtitle under the title |
+| `customSize` | `{width, height}` or `UDim2` | Design size of the window |
+| `autoDPI` | bool | Scale the window to the viewport |
+| `dpiScale` | number | Manual multiplier applied before auto scaling |
+| `minDPI`, `maxDPI` | number | Scale limits |
+| `dpiReference` | size | Resolution treated as 1x |
+| `autoMinimize` | `{width, height}` | Start hidden below this viewport size |
+| `mobileToggle` | table | Floating reopen button (see below) |
+| `lockButton` / `lock_button` | bool or table | Padlock, see [Window lock](#window-lock) |
+| `locked` | bool | Start locked |
+| `closeButton` | bool | Show the close button (default `true`) |
+| `closeMode` | `"hide"` or `"unload"` | What the close button does |
+
+The window, resize handle, floating button, drawers and overlays are clamped to the visible viewport. Dragging and resizing accept mouse and touch.
+
+```lua
 Window:set_size(900, 650)
-Window:set_auto_dpi(false)
 Window:set_auto_dpi(true)
-Window:update_dpi()
-Window:update_auto_minimize()
-~~~
+Window.toggle_menu(true)     -- show / hide (also bound to the "Menu Bind" keybind in Configs)
+```
 
-### Window options
+`mobileToggle = {enabled, icon, shape = "square" | "circle", size, mobileOnly, showWhenOpen, draggable}` configures the draggable floating button. Taps toggle the window; dragging moves the button without toggling.
 
-| Option | Purpose |
-| --- | --- |
-| **customSize** | Design size as a width/height table or UDim2 |
-| **autoDPI** | Scales the design size to the current viewport |
-| **dpiScale** | Manual multiplier applied before automatic scaling |
-| **minDPI / maxDPI** | Lower and upper scale limits |
-| **dpiReference** | Resolution treated as 1× |
-| **autoMinimize** | Starts hidden below a width/height threshold |
-| **mobileToggle** | Configures the draggable floating reopen button |
+## Window lock
 
-The default mobile toggle is a soft-corner square. Set shape to circle when a circular control is preferred. Taps toggle the window; a drag moves the button without accidentally opening or closing the UI.
+The lock stops anyone (you included) from accidentally moving or resizing the window.
 
-The window, resize handle, floating button, drawers, confirmation sheets, and overlays are contained within the visible viewport. Touch input is supported for window dragging, resizing, sliders, dropdowns, color controls, drawers, and confirmations.
+```lua
+local Window = Library:window({
+    name = "VoidHub",
+    lockButton = {
+        enabled = true,          -- show the padlock (default true when a table is given)
+        draggable = true,        -- the padlock itself can be dragged (default true)
+        position = {20, 200},    -- {x, y} offset in pixels or a UDim2; default: beside the window
+        locked = false,          -- start locked
+        notify = false,          -- show a small notification on every toggle
+        callback = function(locked) print("locked:", locked) end,
+    },
+})
+```
 
-## Tabs and group boxes
+What locking does:
 
-Group boxes automatically measure their controls. They grow only as needed, scroll when content exceeds maxHeight, and collapse from their header without leaving an oversized empty area.
+- Window dragging is disabled and the **resize handle is hidden**.
+- The padlock is drawn from frames (no emoji font needed): a closed shackle in your accent colour when locked, an open shackle when unlocked. Hovering shows a tooltip.
+- The padlock hides together with the menu, so it never floats around on its own.
 
-~~~lua
-local Boxes = Combat:groupboxes({
-    maxHeight = 240,
+Control it from code:
+
+```lua
+Window:set_locked(true)     -- also :SetLocked(true)
+Window:toggle_locked()      -- also :ToggleLocked()
+print(Window:is_locked())   -- also :IsLocked()
+```
+
+## Tabs and layout
+
+```lua
+local A, B, C = Window:tab({name = "Main", icon = "rbxassetid://…", tabs = {"A", "B", "C"}})
+```
+
+`Window:tab` returns one sub-tab object per name in `tabs`.
+
+### Group boxes (2x2 grid)
+
+```lua
+local Boxes = A:groupboxes({
+    maxHeight = 240,           -- boxes scroll past this height
     scroll = true,
-    responsive = true,
+    responsive = true,         -- collapse to one column on small viewports
     singleColumnWidth = 700,
-    boxes = {
-        {
-            name = "Auto Farm",
-            icon = "rbxassetid://6034767608"
-        },
-        {
-            name = "Targeting",
-            icon = "rbxassetid://6034767608"
-        },
-        {name = "Movement"},
-        {name = "Combat Tools"}
-    }
+    boxes = {{name = "One"}, {name = "Two"}, {name = "Three"}, {name = "Four"}},
 })
 
-local AutoFarm = Boxes.top_left
-local Targeting = Boxes.top_right
-local Movement = Boxes.bottom_left
-local CombatTools = Boxes.bottom_right
+Boxes.top_left:toggle({name = "Hello"})
+-- also: top_right, bottom_left, bottom_right
+```
 
-AutoFarm:SetCollapsed(true)
-AutoFarm:ToggleCollapsed()
-AutoFarm:SetVisible(true)
-~~~
+`groupbox_grid` and `group_boxes` are aliases. Each box supports `:SetCollapsed(bool)`, `:ToggleCollapsed()` and `:SetVisible(bool)`.
 
-The layout returns top_left, top_right, bottom_left, and bottom_right. Camel-case aliases such as topLeft are also supported.
+### Columns and sections (manual layout)
 
-Desktop uses a full 2×2 layout. On smaller viewports, the grid reflows into a single full-width scrolling column when the viewport reaches singleColumnWidth. Set responsive to false when a fixed four-box layout is required.
+```lua
+local Column  = A:column({})
+local Section = Column:section({name = "Aimbot", size = 1, default = true, side = "left"})
+```
 
-Every group box accepts the normal controls and can contain a nested tab box:
+### Nested tab boxes
 
-~~~lua
-local Modes = CombatTools:AddTabbox({
-    name = "Target modes",
-    icon = "rbxassetid://6034767608"
-})
-
-local Players = Modes:AddTab({
-    name = "Players",
-    icon = "rbxassetid://6034767608"
-})
-
-Players:dropdown({
-    name = "Target mode",
-    items = {"Nearest", "Lowest health", "Crosshair"},
-    default = "Nearest"
-})
-~~~
-
-groupbox_grid and group_boxes are aliases for the same four-section layout.
+```lua
+local Modes  = Boxes.top_right:AddTabbox({name = "Target modes"})
+local Target = Modes:AddTab({name = "Target"})
+Target:dropdown({name = "Mode", items = {"Nearest", "Lowest health"}})
+```
 
 ## Controls
 
-Supported controls include:
+All controls are created on a section or group box and return the control object. Every control accepts a `flag` (config key), a `callback`, and `info` (tooltip text).
 
-- toggle
-- slider
-- dropdown
-- multi_dropdown
-- colorpicker
-- textbox
-- keybind
-- button
-- label
-- list
-- progressbar
-- status
-- timer
-- profile
+| Control | Key options | Notes |
+| --- | --- | --- |
+| `toggle` | `name`, `flag`, `default`, `type = "toggle" \| "checkbox"`, `seperator` | Defaults to the **switch** style. `.set(bool)` |
+| `slider` | `min`, `max`, `interval`, `default`, `suffix` | Value is clamped to `min..max`; `min == max` is safe. `.set(number)` |
+| `dropdown` | `items`, `default`, `multi` | `.set(value)`, `.refresh_options(items)` |
+| `multi_dropdown` | `items`, `default = {…}` | Select all, clear and `:SearchOptions(text)` |
+| `colorpicker` | `color`, `alpha`, `name` | Saturation/value pad, hue and alpha bars, RGBA text box |
+| `textbox` | `placeholder`, `default` | |
+| `keybind` | `key`, `mode = "Toggle" \| "Hold" \| "Always"` | Right-click (long-press on touch) for the mode list |
+| `button` | `callback`, `confirm`, `confirmMode = "hold"` | `confirm = true` shows a confirm sheet first |
+| `label` | `name`, `info` | Text with an optional description line |
+| `list` | `options` | Single-select list |
+| `progressbar` | `min`, `max`, `default` | `:Set(value)` |
+| `status` | `name`, `default`, `color` | `:Set(text, color)` |
+| `timer` | `duration`, `callback`, `autoStart` | `:Start()`, `:Stop()`, `:Reset()` |
+| `profile` | `name`, `image` | Avatar, FPS, ping and executor |
 
-~~~lua
-local Enabled = AutoFarm:toggle({
-    name = "Enable auto farm",
-    flag = "auto_farm",
-    info = "Long-press on mobile or hover on desktop for help."
-})
+```lua
+local Farm = Box:toggle({name = "Auto farm", flag = "farm", default = true})
+Farm.set(false)                       -- programmatic change (runs the callback)
 
-AutoFarm:slider({
-    name = "Farm distance",
-    flag = "farm_distance",
-    min = 0,
-    max = 100,
-    interval = 1,
-    default = 25,
-    info = "The distance used by the feature."
-}):DependsOn("auto_farm", true, "enabled")
+Box:slider({name = "Speed", min = 16, max = 100, interval = 2, default = 32, suffix = " sp"})
+Box:multi_dropdown({name = "Targets", items = {"Players", "NPCs", "Bosses"}, default = {"Players"}})
+Box:keybind({name = "Fly", flag = "fly_key", mode = "Toggle", callback = function(active) end})
+Box:button({name = "Reset", confirm = true, confirmMessage = "Reset everything?", callback = reset})
+```
 
-local Targets = Targeting:multi_dropdown({
-    name = "Targets",
-    items = {"Players", "NPCs", "Bosses"},
-    default = {"Players"}
-})
+Read any flag with `Library.flags.farm` (or the `flags` table returned by the library). Keybind flags are tables `{key, mode, active}`; colour flags are `{Color, Transparency}`.
 
-Targets:SelectAll()
-Targets:Clear()
-local Matches = Targets:SearchOptions("boss")
-~~~
+## Search, tooltips and dependencies
 
-Dependencies support enabled and visible modes and can use a predicate:
+```lua
+Window:AddSearch({placeholder = "Search features..."})   -- filters every registered control
 
-~~~lua
-AutoFarm:slider({
-    name = "Minimum distance",
-    flag = "minimum_distance",
-    min = 0,
-    max = 500,
-    default = 100
-}):DependsOn("farm_distance", function(value)
-    return tonumber(value) and value >= 100
-end, "visible")
-~~~
+Control:SetTooltip("Explains the control")               -- hover on desktop, long-press on touch
+Control:SetVisible(false)
+Control:SetEnabled(false)                                -- dims and blocks input
 
-### Mobile layout details
+Slider:DependsOn("farm", true, "enabled")                -- enabled only while flag "farm" is true
+Slider:DependsOn("distance", function(v) return v >= 100 end, "visible")
+```
 
-- Sliders use a dedicated touch-friendly track row.
-- Descriptions sit below the label and above the slider track.
-- Current values remain aligned to the right.
-- Dropdown triggers use a stable height and option rows.
-- Dropdown menus reposition above the trigger when there is not enough room.
-- Long labels are truncated instead of overlapping adjacent controls.
-- Color pickers and keybind controls use larger touch targets.
+## Themes and readability
 
-## Themes and extensions
+Text on dark surfaces meets at least a 4.5:1 contrast ratio by default: primary text `245`, secondary text about `170`, inactive text about `150`, placeholders `140` on the `33` control background. Switch tracks and outlines have distinct off states so a toggle is readable at a glance.
 
-Built-in theme presets are Void, Ocean, Emerald, Crimson, and Mono.
-
-~~~lua
-Library:ApplyTheme("Ocean")
+```lua
+Library:ApplyTheme("Ocean")             -- Void, Ocean, Emerald, Crimson, Mono
 Library:SetThemeTransparency(0.15)
+Library:update_theme("accent", Color3.fromRGB(255, 120, 190))   -- accent only
 
 Library:RegisterTheme("Custom", {
     accent = Color3.fromRGB(255, 120, 190),
     background = Color3.fromRGB(10, 10, 14),
-    surface = Color3.fromRGB(18, 18, 24),
+    panel = Color3.fromRGB(16, 16, 22),
+    surface = Color3.fromRGB(20, 20, 28),
+    control = Color3.fromRGB(28, 28, 38),
     text = Color3.fromRGB(245, 245, 250),
-    muted = Color3.fromRGB(145, 145, 155)
+    muted = Color3.fromRGB(170, 170, 180),
 })
 
-Library:SetFont(Enum.Font.Code)
-~~~
+Library:SetFont(Font.fromEnum(Enum.Font.Code))
+```
 
-Additional built-in extensions include:
+Add a preset picker with `Section:theme_manager({default = "Void"})`. When you register a custom theme keep text and background at least 4.5:1 apart.
 
-- Search and control filtering
-- Desktop hover and mobile long-press tooltips
-- Control dependencies and enabled states
-- Progress, status, timer, and profile components
-- Keybind registry and conflict detection
-- Notification history and notification center
-- Mobile drawers and confirmation sheets
-- Plugin registration and lifecycle cleanup
-- Control hover and press animations
+## Notifications
 
-Tab badges are intentionally not included.
+```lua
+local Notice = Library:Notify({
+    Title = "VoidHub",
+    Description = "Feature enabled",
+    Icon = "success",        -- info | success | warning | error, or any short text
+    Time = 4,
+    Closable = true,
+})
+
+Notice:ChangeTitle("Done")
+Notice:ChangeDescription("All good")
+Notice:Close()
+
+Library:Notify("Hello", 3)   -- positional shorthand: text, seconds
+```
+
+Options: `Title`, `Description`, `Time`, `Persist`, `Steps` (progress notification; use `:ChangeStep(n)`), `Closable`, `Callback`, `Icon`, `IconColor`, `TitleColor`, `DescriptionColor`, `SoundId`, `Volume`, `Width`. Lowercase `name`, `info` and `lifetime` work too. At most 5 cards are shown on desktop and 3 on mobile. History is kept (100 entries): `Library:GetNotificationHistory()`, `Library:ClearNotificationHistory()`, `Library:CreateNotificationCenter(section, {limit = 5})`.
 
 ## Drawers and confirmations
 
-Drawers and confirmation sheets are responsive overlays. They stay inside the scaled window, leave the top drag strip available, resize their scrolling content when the window changes size, and close from the backdrop or close button.
-
-~~~lua
+```lua
 local Drawer = Library:CreateDrawer({
-    title = "Quick Actions",
+    title = "Quick actions",
     height = 220,
-    build = function(Content, API)
-        -- Add Roblox GUI objects to Content.
-    end
+    build = function(Content, Api) --[[ parent your own Instances to Content ]] end,
 })
-
-Drawer:Open()
-Drawer:Close()
-Drawer:Toggle()
-Drawer:Destroy()
+Drawer:Open(); Drawer:Close(); Drawer:Toggle(); Drawer:Destroy()
 
 Library:Confirm({
     title = "Reset settings?",
     message = "This cannot be undone.",
     confirmText = "Reset",
-    callback = function()
-        print("Confirmed")
-    end
+    cancelText = "Cancel",
+    callback = function() end,
+    onCancel = function() end,
 })
-~~~
+```
 
-## Notifications
+Drawers stay inside the window, follow it when it is resized, and close from the backdrop or the close button.
 
-Notifications use an Obsidian-inspired compact panel: title, description, optional icon, close control, accent outline, inset progress bar, and right-edge slide animation. They support persistent messages, step progress, sounds, live updates, and mobile-safe stacking.
+## Configs
 
-~~~lua
-local Notice = Library:Notify({
-    Title = "VoidHub UI",
-    Description = "Feature enabled",
-    Icon = "success",
-    Time = 4,
-    Closable = true
-})
+```lua
+Library:init_config(Window)     -- adds a "Configs" page: list, name box, Save / Load / Delete, accent, menu bind
+```
 
-Notice:ChangeTitle("VoidHub")
-Notice:ChangeDescription("Feature updated")
-Notice:Destroy()
+```lua
+Library:SetConfigScope("game")  -- "global" (default), "game", or any custom name
 
--- Positional compatibility form
-Library:Notify("Hello world!", 4)
+local ok, name = Library:save_config("Main")
+local ok, name = Library:load_named_config("Main")
+local ok, name = Library:delete_config("Main")
+local list     = Library:get_config_list()
 
-local Loading = Library:Notify({
-    Title = "Loading",
-    Description = "Preparing features...",
-    Steps = 10,
-    Persist = true
-})
+Library:DuplicateConfig("Main", "Backup")
+Library:RenameConfig("Backup", "Archive")
+local ok, json = Library:ExportConfig("Main")
+Library:ImportConfig("Shared", json)
 
-Loading:ChangeStep(5)
-Loading:Destroy()
-~~~
+Library:EnableAutoSave("Main", 30)   -- every 30s (minimum 5)
+Library:DisableAutoSave()
+```
 
-Notification options include Title, Description, Time, Steps, Persist, Closable, Callback, Icon, IconColor, TitleColor, DescriptionColor, SoundId, and Volume.
-
-Lowercase VoidHub aliases such as name, info, and lifetime remain supported for compatibility. Notifications are capped at three visible mobile cards and five desktop cards. Session history is capped at 100 entries.
-
-~~~lua
-local Center = Library:CreateNotificationCenter(CombatTools, {
-    limit = 5
-})
-
-Center:Refresh()
-Library:ClearNotificationHistory()
-~~~
+Names are sanitised, imports must be valid JSON, and the setters registered by each control restore toggles, sliders, dropdowns, colours, keybinds and text boxes. Configs live in `milenium/configs/` inside the executor workspace.
 
 ## Discord webhooks
 
-The library supports executor HTTP request adapters for Discord incoming webhooks. It accepts `request`, `http_request`, `syn.request`, and `http.request` when the target environment exposes one.
-
-~~~lua
-Library:ConfigureWebhook({
-    url = "https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN",
-    username = "VoidHub",
-    minInterval = 1
-})
-
-Library:SendWebhook({
-    content = "Feature enabled",
-    embeds = {{
-        title = "VoidHub",
-        description = "A feature was enabled.",
-        color = 10158079
-    }}
-}, function(success, error_message)
-    if not success then
-        warn(error_message)
-    end
-end)
-
+```lua
+Library:ConfigureWebhook({url = "https://discord.com/api/webhooks/ID/TOKEN", username = "VoidHub"})
+Library:SendWebhook({content = "Hello", embeds = {{title = "VoidHub", description = "Started"}}},
+    function(ok, err) if not ok then warn(err) end end)
 Library:TestWebhook()
 Library:ClearWebhook()
-~~~
+```
 
-Webhook messages are queued per library instance, use `allowed_mentions = {parse = {}}` by default, truncate content to Discord's 2,000-character limit, cap embeds at 10, and retry a Discord 429 once using its returned retry delay. Keep webhook URLs private because the URL contains the webhook token.
+Requests use whichever of `request`, `http_request`, `syn.request` or `http.request` the executor provides. Messages are queued, rate-limited, sent with `allowed_mentions = {parse = {}}`, truncated to Discord's limits, and retried once on HTTP 429. Only `discord.com` / `discordapp.com` webhook URLs are accepted. The URL contains a secret token, so keep it private.
 
-## Configuration system
+## Plugins
 
-Create the built-in Configs page after all controls have been registered:
-
-~~~lua
-Library:init_config(Window)
-~~~
-
-Configs support global, game, and custom scopes:
-
-~~~lua
-Library:SetConfigScope("game")
-
-local Saved, SaveError = Library:save_config("Main")
-local Loaded, LoadError = Library:load_named_config("Main")
-local Deleted, DeleteError = Library:delete_config("Main")
-local Configs = Library:get_config_list()
-
-Library:DuplicateConfig("Main", "Main Backup")
-Library:RenameConfig("Main Backup", "Archived")
-
-local Exported, JSON = Library:ExportConfig("Main")
-if Exported then
-    Library:ImportConfig("Imported", JSON)
-end
-
-Library:EnableAutoSave("Main", 30)
-Library:DisableAutoSave()
-~~~
-
-Config names are validated and sanitized. Import rejects invalid JSON, and registered setters restore toggles, sliders, dropdowns, colors, keybinds, and text values.
-
-## Plugin API
-
-~~~lua
-Library:RegisterPlugin("ExamplePlugin", function(Lib, Context)
+```lua
+Library:RegisterPlugin("Example", function(Lib, Context)
     print(Context.message)
-
-    return {
-        Unload = function()
-            print("Plugin cleaned up")
-        end
-    }
+    return {Unload = function() print("cleaned up") end}
 end)
 
-local OK, Plugin = Library:LoadPlugin("ExamplePlugin", {
-    message = "Hello from VoidHub"
-})
-
-Library:UnloadPlugin("ExamplePlugin")
-~~~
-
-Plugins initialize once, receive the library and a context table, and may expose Unload or unload for cleanup.
+Library:LoadPlugin("Example", {message = "hi"})
+Library:UnloadPlugin("Example")
+```
 
 ## Cleanup
 
-~~~lua
+```lua
 Library:Unload()
-~~~
+```
 
-Unload closes the UI, stops autosave loops, unloads plugins, destroys drawers and GUI roots, disconnects tracked listeners, and clears the public references created by the example.
+Unloading closes the UI, stops autosave and timers, unloads plugins, disconnects every tracked listener and destroys the GUI roots, including the lock and mobile toggle.
 
 ## Project files
 
 | File | Purpose |
 | --- | --- |
-| [Millenium/Library.lua](Millenium/Library.lua) | Main UI library |
-| [Millenium/Example.lua](Millenium/Example.lua) | Complete feature example |
-| [LICENSE](LICENSE) | Project license |
-
-For the complete runnable implementation, open [Millenium/Example.lua](Millenium/Example.lua).
+| [`Millenium/Library.lua`](Millenium/Library.lua) | The library |
+| [`Millenium/Example.lua`](Millenium/Example.lua) | Runnable example using every control |
+| [`LICENSE`](LICENSE) | License |

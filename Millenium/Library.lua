@@ -346,6 +346,11 @@
 
             library:connection(Handle.InputBegan, function(input)
                 if not is_press(input) then return end
+                local active_window = library.active_window
+                if active_window and active_window.items and active_window.items.main == frame
+                    and active_window.locked == true then
+                    return
+                end
                 library:clamp_to_viewport(frame, 4)
                 resizing = true
                 active_input = input
@@ -1098,10 +1103,11 @@
             local lower_dpi = max(0.1, min(dpi_min, dpi_max))
             local upper_dpi = max(lower_dpi, dpi_max)
 
+            local game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI"
             local cfg = { 
                 suffix = properties.suffix or properties.Suffix or "UI";
                 name = properties.name or properties.Name or "VoidHub";
-                game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI";
+                game_name = game_name;
                 subtitle = properties.subtitle or properties.Subtitle or properties.sub_title or properties.subTitle or game_name;
                 size = resolved_size;
                 auto_dpi = auto_dpi ~= false;
@@ -1124,7 +1130,9 @@
                 lock_toggle_enabled = lock_enabled == true;
                 lock_toggle_draggable = lock_draggable == true;
                 lock_toggle_position = lock_position;
-                locked = properties.locked == true;
+                lock_toggle_callback = type(lock_options.callback or lock_options.Callback) == "function" and (lock_options.callback or lock_options.Callback) or nil;
+                lock_toggle_notify = (lock_options.notify or lock_options.Notify) == true;
+                locked = properties.locked == true or lock_options.locked == true;
                 close_button_enabled = close_button_enabled == true;
                 close_unloads = close_unloads == true;
                 dpi_scale = dpi_scale;
@@ -1397,7 +1405,6 @@
                 items[ "title" ] = library:create( "TextLabel" , {
                     FontFace = fonts.font;
                     BorderColor3 = rgb(0, 0, 0);
-                    Text = name;
                     Parent = items[ "side_frame" ];
                     Name = "\0";
                     Text = string.format('<u>%s</u><font color = "rgb(255, 255, 255)">%s</font>', cfg.name, cfg.suffix);
@@ -1413,7 +1420,7 @@
                 items[ "subtitle" ] = library:create( "TextLabel" , {
                     FontFace = fonts.small;
                     Parent = items[ "side_frame" ];
-                    TextColor3 = rgb(104, 104, 108);
+                    TextColor3 = rgb(160, 160, 166);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = cfg.subtitle;
                     Name = "VoidHubSubtitle";
@@ -1511,7 +1518,7 @@
                 items[ "game" ] = library:create( "TextLabel" , {
                     FontFace = fonts.font;
                     Parent = items[ "info" ];
-                    TextColor3 = rgb(72, 72, 73);
+                    TextColor3 = rgb(152, 152, 158);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = cfg.subtitle;
                     Name = "\0";
@@ -1527,7 +1534,6 @@
                 }); 
                 
                 -- Removed subscription/countdown footer.
- library:apply_theme(items[ "other_info" ], "accent", "TextColor3");        
             end 
 
             do -- Other
@@ -1553,6 +1559,10 @@
 
                 if cfg.update_mobile_toggle then
                     cfg:update_mobile_toggle()
+                end
+
+                if cfg.update_lock_toggle then
+                    cfg:update_lock_toggle()
                 end
             end
 
@@ -1784,27 +1794,68 @@
                 end)
             end
 
+            -- Lock: freezes dragging and resizing of the window. The handle is a
+            -- separate draggable padlock drawn from frames (no emoji dependency).
             function cfg:update_lock_toggle()
+                -- resizing is part of the lock, so the handle disappears while locked
+                local main = items[ "main" ]
+                local handle = main and main:FindFirstChild("VoidHubResizeHandle")
+                if handle then
+                    handle.Visible = not self.locked
+                end
+
                 if not library or not library[ "lock_toggle" ] then
                     return false
                 end
 
                 local toggle_gui = library[ "lock_toggle" ]
-                toggle_gui.Enabled = self.lock_toggle_enabled == true
+                local menu_visible = not library[ "items" ] or library[ "items" ].Enabled
+                toggle_gui.Enabled = self.lock_toggle_enabled == true and menu_visible
 
-                local lock_button = self.lock_toggle_button
-                if lock_button then
-                    lock_button.Text = self.locked and "🔒" or "🔓"
-                    lock_button.BackgroundColor3 = self.locked and themes.preset.accent or rgb(27, 27, 30)
-                    lock_button.TextColor3 = self.locked and rgb(255, 255, 255) or rgb(210, 210, 218)
+                local lock = self.lock_toggle_button
+                local parts = self.lock_toggle_parts
+                if lock and parts then
+                    local locked = self.locked == true
+                    local glyph = locked and rgb(12, 12, 14) or rgb(225, 225, 230)
+
+                    library:tween(lock, {BackgroundColor3 = locked and themes.preset.accent or rgb(27, 27, 30)}, Enum.EasingStyle.Quad, 0.15)
+                    library:tween(parts.body, {BackgroundColor3 = glyph}, Enum.EasingStyle.Quad, 0.15)
+                    library:tween(parts.keyhole, {BackgroundColor3 = locked and themes.preset.accent or rgb(27, 27, 30)}, Enum.EasingStyle.Quad, 0.15)
+                    parts.shackle_stroke.Color = glyph
+                    parts.stroke.Color = locked and themes.preset.accent or rgb(110, 110, 122)
+                    -- closed shackle sits on the body; open shackle lifts and swings aside
+                    library:tween(parts.shackle, {
+                        Position = locked and dim2(0.5, 0, 0.5, -4) or dim2(0.5, -4, 0.5, -8);
+                    }, Enum.EasingStyle.Back, 0.2)
+                    lock.Name = locked and "VoidHubLockHandle_Locked" or "VoidHubLockHandle"
+                    if parts.tooltip then
+                        parts.tooltip:SetText(locked and "Window locked - click to unlock" or "Window unlocked - click to lock")
+                    end
                 end
 
                 return toggle_gui.Enabled
             end
 
             function cfg:set_locked(value)
-                self.locked = value == true
-                return self:update_lock_toggle()
+                local locked = value == true
+                if self.locked == locked then
+                    return self:update_lock_toggle()
+                end
+
+                self.locked = locked
+                local result = self:update_lock_toggle()
+                if self.lock_toggle_callback then
+                    task.spawn(self.lock_toggle_callback, locked)
+                end
+                if self.lock_toggle_notify then
+                    notifications:create_notification({
+                        name = "Window";
+                        info = locked and "Locked in place" or "Unlocked";
+                        type = locked and "success" or "info";
+                        time = 1.5;
+                    })
+                end
+                return result
             end
 
             function cfg:SetLocked(value)
@@ -1817,6 +1868,14 @@
 
             function cfg:ToggleLocked()
                 return self:toggle_locked()
+            end
+
+            function cfg:is_locked()
+                return self.locked == true
+            end
+
+            function cfg:IsLocked()
+                return self.locked == true
             end
 
             if cfg.lock_toggle_enabled then
@@ -1836,39 +1895,101 @@
                     Selectable = false;
                     AutoButtonColor = false;
                     BackgroundColor3 = rgb(27, 27, 30);
-                    BackgroundTransparency = 0.05;
+                    BackgroundTransparency = 0;
                     BorderSizePixel = 0;
-                    Text = cfg.locked and "🔒" or "🔓";
-                    TextColor3 = rgb(210, 210, 218);
-                    FontFace = fonts.font;
-                    TextSize = 18;
+                    Text = "";
                     Position = cfg.lock_toggle_position or dim2(0, 0, 0, 0);
-                    Size = dim2(0, 42, 0, 42);
+                    Size = dim2(0, 40, 0, 40);
                     ZIndex = 1001
                 })
 
                 cfg.lock_toggle_button = lock_button
+                local parts = {}
+                cfg.lock_toggle_parts = parts
 
                 library:create( "UICorner" , {
                     Parent = lock_button;
                     CornerRadius = dim(0, 12)
                 })
 
-                library:create( "UIStroke" , {
+                parts.stroke = library:create( "UIStroke" , {
                     Parent = lock_button;
                     ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
                     Color = rgb(110, 110, 122);
-                    Transparency = 0.2;
+                    Transparency = 0;
                     Thickness = 1
                 })
 
-                library:draggify(lock_button)
+                -- shackle: hollow rounded frame, drawn first so the body covers its lower half
+                parts.shackle = library:create( "Frame" , {
+                    Parent = lock_button;
+                    Name = "Shackle";
+                    AnchorPoint = vec2(0.5, 1);
+                    Position = dim2(0.5, 0, 0.5, -4);
+                    Size = dim2(0, 14, 0, 16);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    ZIndex = 1002
+                })
+                library:create( "UICorner" , {
+                    Parent = parts.shackle;
+                    CornerRadius = dim(0, 7)
+                })
+                parts.shackle_stroke = library:create( "UIStroke" , {
+                    Parent = parts.shackle;
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+                    Color = rgb(225, 225, 230);
+                    Thickness = 2.5
+                })
+
+                parts.body = library:create( "Frame" , {
+                    Parent = lock_button;
+                    Name = "Body";
+                    AnchorPoint = vec2(0.5, 0);
+                    Position = dim2(0.5, 0, 0.5, -4);
+                    Size = dim2(0, 20, 0, 15);
+                    BackgroundColor3 = rgb(225, 225, 230);
+                    BorderSizePixel = 0;
+                    ZIndex = 1003
+                })
+                library:create( "UICorner" , {
+                    Parent = parts.body;
+                    CornerRadius = dim(0, 4)
+                })
+
+                parts.keyhole = library:create( "Frame" , {
+                    Parent = parts.body;
+                    Name = "Keyhole";
+                    AnchorPoint = vec2(0.5, 0.5);
+                    Position = dim2(0.5, 0, 0.5, 0);
+                    Size = dim2(0, 4, 0, 6);
+                    BackgroundColor3 = rgb(27, 27, 30);
+                    BorderSizePixel = 0;
+                    ZIndex = 1004
+                })
+                library:create( "UICorner" , {
+                    Parent = parts.keyhole;
+                    CornerRadius = dim(0, 2)
+                })
+
+                if cfg.lock_toggle_draggable then
+                    library:draggify(lock_button)
+                end
 
                 library:connection(lock_button.Activated, function()
-                    if library and library.active_window == cfg then
-                        cfg:toggle_locked()
-                    end
+                    cfg:toggle_locked()
                 end)
+
+                library:connection(lock_button.MouseEnter, function()
+                    library:tween(parts.stroke, {Color = themes.preset.accent}, Enum.EasingStyle.Quad, 0.12)
+                end)
+                library:connection(lock_button.MouseLeave, function()
+                    library:tween(parts.stroke, {Color = cfg.locked and themes.preset.accent or rgb(110, 110, 122)}, Enum.EasingStyle.Quad, 0.12)
+                end)
+
+                if library.Tooltip then
+                    parts.tooltip = library:Tooltip(lock_button, "Lock window")
+                end
 
                 if not cfg.lock_toggle_position then
                     task.defer(function()
@@ -1945,7 +2066,7 @@
                     });
                     
                     items[ "icon" ] = library:create( "ImageLabel" , {
-                        ImageColor3 = rgb(72, 72, 73);
+                        ImageColor3 = rgb(152, 152, 158);
                         BorderColor3 = rgb(0, 0, 0);
                         Parent = items[ "button" ];
                         AnchorPoint = vec2(0, 0.5);
@@ -1960,7 +2081,7 @@
                     
                     items[ "name" ] = library:create( "TextLabel" , {
                         FontFace = fonts.font;
-                        TextColor3 = rgb(72, 72, 73);
+                        TextColor3 = rgb(152, 152, 158);
                         BorderColor3 = rgb(0, 0, 0);
                         Text = cfg.name;
                         Parent = items[ "button" ];
@@ -2051,7 +2172,7 @@
                                 
                                 multi_items[ "name" ] = library:create( "TextLabel" , {
                                     FontFace = fonts.font;
-                                    TextColor3 = rgb(62, 62, 63);
+                                    TextColor3 = rgb(140, 140, 146);
                                     BorderColor3 = rgb(0, 0, 0);
                                     Text = section_name;
                                     Parent = multi_items[ "button" ];
@@ -2104,7 +2225,7 @@
                                     multi_items[ "icon" ] = library:create( "ImageLabel" , {
                                         Parent = multi_items[ "button" ];
                                         Image = section_icon;
-                                        ImageColor3 = rgb(62, 62, 63);
+                                        ImageColor3 = rgb(140, 140, 146);
                                         Position = dim2(0, 8, 0.5, -8);
                                         Size = dim2(0, 16, 0, 16);
                                         BackgroundTransparency = 1;
@@ -2168,7 +2289,7 @@
                             end
 
                             if page then
-                                library:tween(page.text, {TextColor3 = rgb(62, 62, 63)})
+                                library:tween(page.text, {TextColor3 = rgb(140, 140, 146)})
                                 library:tween(page.accent, {BackgroundTransparency = 1})
                                 library:tween(page.button, {BackgroundTransparency = 1})
 
@@ -2212,8 +2333,8 @@
                     end
 
                     library:tween(selected_tab[ 1 ], {BackgroundTransparency = 1})
-                    library:tween(selected_tab[ 2 ], {ImageColor3 = rgb(72, 72, 73)})
-                    library:tween(selected_tab[ 3 ], {TextColor3 = rgb(72, 72, 73)})
+                    library:tween(selected_tab[ 2 ], {ImageColor3 = rgb(152, 152, 158)})
+                    library:tween(selected_tab[ 3 ], {TextColor3 = rgb(152, 152, 158)})
 
                     selected_tab[ 4 ].Visible = false
                     selected_tab[ 4 ].Parent = library[ "cache" ]
@@ -2259,7 +2380,7 @@
             local items = cfg.items do 
                 items[ "name" ] = library:create( "TextLabel" , {
                     FontFace = fonts.font;
-                    TextColor3 = rgb(72, 72, 73);
+                    TextColor3 = rgb(152, 152, 158);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = cfg.name;
                     Parent = self.items[ "button_holder" ];
@@ -2612,7 +2733,7 @@
             if cfg.collapsible then
                 items[ "collapse" ] = library:create( "TextLabel" , {
                     FontFace = fonts.font;
-                    TextColor3 = rgb(145, 145, 145);
+                    TextColor3 = rgb(170, 170, 176);
                     Text = cfg.collapsed and "+" or "-";
                     Parent = items[ "button" ];
                     Name = "CollapseIndicator";
@@ -2642,7 +2763,7 @@
                         Size = dim2(0, 36, 0, 18);
                         BorderSizePixel = 0;
                         TextSize = 14;
-                        BackgroundColor3 = rgb(58, 58, 62)
+                        BackgroundColor3 = rgb(48, 48, 53)
                     });  library:apply_theme(items[ "toggle" ], "accent", "BackgroundColor3");
                     
                     library:create( "UICorner" , {
@@ -2658,7 +2779,7 @@
                         BorderColor3 = rgb(0, 0, 0);
                         Position = dim2(0, 1, 0, 1);
                         BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(50, 50, 50)
+                        BackgroundColor3 = rgb(78, 78, 84)
                     });  library:apply_theme(items[ "toggle_outline" ], "accent", "BackgroundColor3");
                     
                     library:create( "UICorner" , {
@@ -2678,7 +2799,7 @@
                         BorderColor3 = rgb(0, 0, 0);
                         Size = dim2(0, 12, 0, 12);
                         BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(86, 86, 88)
+                        BackgroundColor3 = rgb(165, 165, 171)
                     });
                     
                     library:create( "UICorner" , {
@@ -2715,9 +2836,9 @@
                 end)
 
                 function cfg.toggle_section(bool)
-                    library:tween(items[ "toggle" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(58, 58, 62)}, Enum.EasingStyle.Quad)
-                    library:tween(items[ "toggle_outline" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(50, 50, 50)}, Enum.EasingStyle.Quad)
-                    library:tween(items[ "toggle_circle" ], {BackgroundColor3 = bool and rgb(255, 255, 255) or rgb(86, 86, 88), Position = bool and dim2(1, -14, 0, 2) or dim2(0, 2, 0, 2)}, Enum.EasingStyle.Quad)
+                    library:tween(items[ "toggle" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(48, 48, 53)}, Enum.EasingStyle.Quad)
+                    library:tween(items[ "toggle_outline" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(78, 78, 84)}, Enum.EasingStyle.Quad)
+                    library:tween(items[ "toggle_circle" ], {BackgroundColor3 = bool and rgb(255, 255, 255) or rgb(165, 165, 171), Position = bool and dim2(1, -14, 0, 2) or dim2(0, 2, 0, 2)}, Enum.EasingStyle.Quad)
                     library:tween(items[ "fade" ], {BackgroundTransparency = bool and 1 or 0.8}, Enum.EasingStyle.Quad)
                 end 
             end 
@@ -2903,7 +3024,7 @@
                         tab_items[ "icon" ] = library:create( "ImageLabel" , {
                             Parent = tab_items[ "button" ];
                             Image = data.icon;
-                            ImageColor3 = rgb(145, 145, 145);
+                            ImageColor3 = rgb(170, 170, 176);
                             Position = dim2(0, 8, 0.5, -8);
                             Size = dim2(0, 16, 0, 16);
                             BackgroundTransparency = 1;
@@ -2919,7 +3040,7 @@
                         AutomaticSize = Enum.AutomaticSize.X;
                         BackgroundTransparency = 1;
                         Text = data.name;
-                        TextColor3 = rgb(145, 145, 145);
+                        TextColor3 = rgb(170, 170, 176);
                         FontFace = fonts.small;
                         TextSize = 13;
                         TextXAlignment = Enum.TextXAlignment.Left;
@@ -2956,7 +3077,7 @@
                 function data:open()
                     if cfg.current_tab then
                         cfg.current_tab.items[ "page" ].Visible = false
-                        cfg.current_tab.items[ "label" ].TextColor3 = rgb(145, 145, 145)
+                        cfg.current_tab.items[ "label" ].TextColor3 = rgb(170, 170, 176)
                     end
 
                     cfg.current_tab = data
@@ -3168,16 +3289,15 @@
         end
 
         function library:toggle(options) 
-            local rand = math.random(1, 2) 
             local cfg = {
-                enabled = options.enabled or nil,
+                enabled = (options.default or options.enabled) and true or false,
                 name = options.name or "Toggle",
                 info = options.info or nil,
                 flag = options.flag or library:next_flag(),
                 
-                type = options.type and string.lower(options.type) or rand == 1 and "toggle" or "checkbox"; -- "toggle", "checkbox"
+                type = options.type and string.lower(options.type) or "toggle"; -- "toggle", "checkbox"
 
-                default = options.default or false,
+                default = (options.default or options.enabled) and true or false,
                 folding = options.folding or false, 
                 callback = options.callback or function() end,
 
@@ -3222,7 +3342,7 @@
                 if cfg.info then 
                     items[ "info" ] = library:create( "TextLabel" , {
                         FontFace = fonts.small;
-                        TextColor3 = rgb(130, 130, 130);
+                        TextColor3 = rgb(165, 165, 171);
                         BorderColor3 = rgb(0, 0, 0);
                         TextWrapped = true;
                         Text = cfg.info;
@@ -3279,7 +3399,7 @@
                             Size = dim2(0, 16, 0, 16);
                             BorderSizePixel = 0;
                             TextSize = 14;
-                            BackgroundColor3 = rgb(67, 67, 68)
+                            BackgroundColor3 = rgb(78, 78, 84)
                         }); library:apply_theme(items[ "toggle_button" ], "accent", "BackgroundColor3");
                         
                         library:create( "UICorner" , {
@@ -3385,20 +3505,17 @@
             function cfg.set(bool)
                 if cfg.type == "checkbox" then 
                     library:tween(items[ "tick" ], {Rotation = bool and 0 or 45, ImageTransparency = bool and 0 or 1})
-                    library:tween(items[ "toggle_button" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(67, 67, 68)})
+                    library:tween(items[ "toggle_button" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(78, 78, 84)})
                     library:tween(items[ "outline" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(22, 22, 24)})
                 else
-                    library:tween(items[ "toggle_button" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(58, 58, 62)}, Enum.EasingStyle.Quad)
-                    library:tween(items[ "inline" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(50, 50, 50)}, Enum.EasingStyle.Quad)
-                    library:tween(items[ "circle" ], {BackgroundColor3 = bool and rgb(255, 255, 255) or rgb(86, 86, 88), Position = bool and dim2(1, -14, 0, 2) or dim2(0, 2, 0, 2)}, Enum.EasingStyle.Quad)
+                    library:tween(items[ "toggle_button" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(48, 48, 53)}, Enum.EasingStyle.Quad)
+                    library:tween(items[ "inline" ], {BackgroundColor3 = bool and themes.preset.accent or rgb(78, 78, 84)}, Enum.EasingStyle.Quad)
+                    library:tween(items[ "circle" ], {BackgroundColor3 = bool and rgb(255, 255, 255) or rgb(165, 165, 171), Position = bool and dim2(1, -14, 0, 2) or dim2(0, 2, 0, 2)}, Enum.EasingStyle.Quad)
                 end
 
                 cfg.callback(bool)
 
-                if cfg.folding then 
-                    elements.Visible = bool
-                end
-
+                cfg.enabled = bool
                 flags[cfg.flag] = bool
             end 
             
@@ -3489,7 +3606,7 @@
                 if cfg.info then 
                     items[ "info" ] = library:create( "TextLabel" , {
                         FontFace = fonts.small;
-                        TextColor3 = rgb(130, 130, 130);
+                        TextColor3 = rgb(165, 165, 171);
                         BorderColor3 = rgb(0, 0, 0);
                         TextWrapped = true;
                         Text = cfg.info;
@@ -3604,7 +3721,7 @@
 
                 items[ "value" ] = library:create( "TextLabel" , {
                     FontFace = fonts.small;
-                    TextColor3 = rgb(72, 72, 73);
+                    TextColor3 = rgb(152, 152, 158);
                     BorderColor3 = rgb(0, 0, 0);
                     Text = "50%";
                     Parent = items[ "slider_object" ];
@@ -3643,7 +3760,9 @@
             function cfg.set(value)
                 cfg.value = clamp(library:round(value, cfg.intervals), cfg.min, cfg.max)
 
-                library:tween(items[ "fill" ], {Size = dim2((cfg.value - cfg.min) / (cfg.max - cfg.min), cfg.value == cfg.min and 0 or -4, 1, 0)}, Enum.EasingStyle.Linear, 0.05)
+                local span = cfg.max - cfg.min
+                local fraction = span == 0 and 0 or (cfg.value - cfg.min) / span
+                library:tween(items[ "fill" ], {Size = dim2(fraction, cfg.value == cfg.min and 0 or -4, 1, 0)}, Enum.EasingStyle.Linear, 0.05)
                 items[ "value" ].Text = tostring(cfg.value) .. cfg.suffix
 
                 flags[cfg.flag] = cfg.value
@@ -3698,7 +3817,7 @@
                         and input.UserInputType == Enum.UserInputType.MouseButton1) then
                     cfg.dragging = false
                     cfg.drag_input = nil
-                    library:tween(items[ "value" ], {TextColor3 = rgb(72, 72, 73)}, Enum.EasingStyle.Quad, 0.2)
+                    library:tween(items[ "value" ], {TextColor3 = rgb(152, 152, 158)}, Enum.EasingStyle.Quad, 0.2)
                 end
             end)
 
@@ -3790,7 +3909,7 @@
                     if cfg.info then 
                         items[ "info" ] = library:create( "TextLabel" , {
                             FontFace = fonts.small;
-                            TextColor3 = rgb(130, 130, 130);
+                            TextColor3 = rgb(165, 165, 171);
                             BorderColor3 = rgb(0, 0, 0);
                             TextWrapped = true;
                             Text = cfg.info;
@@ -3865,7 +3984,7 @@
                     
                     items[ "sub_text" ] = library:create( "TextLabel" , {
                         FontFace = fonts.small;
-                        TextColor3 = rgb(86, 86, 87);
+                        TextColor3 = rgb(150, 150, 156);
                         BorderColor3 = rgb(0, 0, 0);
                         Text = "Select...";
                         Parent = items[ "dropdown" ];
@@ -3890,7 +4009,7 @@
                     });
                     
                     items[ "indicator" ] = library:create( "ImageLabel" , {
-                        ImageColor3 = rgb(86, 86, 87);
+                        ImageColor3 = rgb(150, 150, 156);
                         BorderColor3 = rgb(0, 0, 0);
                         Parent = items[ "dropdown" ];
                         AnchorPoint = vec2(1, 0.5);
@@ -4194,7 +4313,7 @@
                 if count == 0 then
                     local button = cfg.render_option("No options available")
                     button:SetAttribute("VoidHubPlaceholder", true)
-                    button.TextColor3 = rgb(120, 120, 128)
+                    button.TextColor3 = rgb(150, 150, 158)
                     button.Selectable = false
                     button.Active = false
                     insert(cfg.option_instances, button)
@@ -4373,7 +4492,7 @@
                 if cfg.info then 
                     items[ "info" ] = library:create( "TextLabel" , {
                         FontFace = fonts.small;
-                        TextColor3 = rgb(130, 130, 130);
+                        TextColor3 = rgb(165, 165, 171);
                         BorderColor3 = rgb(0, 0, 0);
                         TextWrapped = true;
                         Text = cfg.info;
@@ -4758,12 +4877,12 @@
                         Name = "\0";
                         TextTruncate = Enum.TextTruncate.AtEnd;
                         BorderSizePixel = 0;
-                        PlaceholderColor3 = rgb(255, 255, 255);
+                        PlaceholderColor3 = rgb(140, 140, 146);
                         CursorPosition = -1;
                         ClearTextOnFocus = false;
                         TextSize = 14;
                         BackgroundColor3 = rgb(255, 255, 255);
-                        TextColor3 = rgb(72, 72, 72);
+                        TextColor3 = rgb(152, 152, 158);
                         BorderColor3 = rgb(0, 0, 0);
                         Position = dim2(1, -8, 1, -11);
                         Size = dim2(1, -16, 0, 18);
@@ -4943,7 +5062,7 @@
             end)
 
             items[ "input" ].FocusLost:Connect(function()
-                library:tween(items[ "input" ], {TextColor3 = rgb(72, 72, 72)})
+                library:tween(items[ "input" ], {TextColor3 = rgb(152, 152, 158)})
             end)
             
             cfg.set(cfg.color, cfg.alpha)
@@ -5029,12 +5148,12 @@
                     Name = "\0";
                     TextTruncate = Enum.TextTruncate.AtEnd;
                     BorderSizePixel = 0;
-                    PlaceholderColor3 = rgb(255, 255, 255);
+                    PlaceholderColor3 = rgb(140, 140, 146);
                     CursorPosition = -1;
                     ClearTextOnFocus = false;
                     TextSize = 14;
                     BackgroundColor3 = rgb(255, 255, 255);
-                    TextColor3 = rgb(72, 72, 72);
+                    TextColor3 = rgb(152, 152, 158);
                     BorderColor3 = rgb(0, 0, 0);
                     Position = dim2(1, 0, 0, 0);
                     Size = dim2(1, -4, 0, 30);
@@ -5070,7 +5189,7 @@
             end)
 
             items[ "input" ].FocusLost:Connect(function()
-                library:tween(items[ "input" ], {TextColor3 = rgb(72, 72, 72)})
+                library:tween(items[ "input" ], {TextColor3 = rgb(152, 152, 158)})
             end)
                 
             if cfg.default then 
@@ -5187,7 +5306,7 @@
                     
                     items[ "key" ] = library:create( "TextLabel" , {
                         FontFace = fonts.font;
-                        TextColor3 = rgb(86, 86, 87);
+                        TextColor3 = rgb(150, 150, 156);
                         BorderColor3 = rgb(0, 0, 0);
                         Text = "LSHIFT";
                         Parent = items[ "keybind_holder" ];
@@ -5256,7 +5375,7 @@
                     for _, option in options do                        
                         local name = library:create( "TextButton" , {
                             FontFace = fonts.font;
-                            TextColor3 = rgb(72, 72, 73);
+                            TextColor3 = rgb(152, 152, 158);
                             BorderColor3 = rgb(0, 0, 0);
                             Text = option;
                             Parent = items[ "inline" ];
@@ -5293,7 +5412,7 @@
             
             function cfg.modify_mode_color(path) -- ts so frikin tuff 💀
                 for _, v in cfg.hold_instances do 
-                    v.TextColor3 = rgb(72, 72, 72)
+                    v.TextColor3 = rgb(152, 152, 158)
                 end 
 
                 cfg.hold_instances[path].TextColor3 = themes.preset.accent
@@ -5646,7 +5765,7 @@
 
                 for _, entry in cfg.data_store do
                     local active = entry.value == value
-                    entry.label.TextColor3 = active and rgb(245, 245, 245) or rgb(72, 72, 73)
+                    entry.label.TextColor3 = active and rgb(245, 245, 245) or rgb(152, 152, 158)
 
                     if active then
                         selected = entry
@@ -5694,7 +5813,7 @@
 
                     local name = library:create( "TextLabel" , {
                         FontFace = fonts.font;
-                        TextColor3 = rgb(72, 72, 73);
+                        TextColor3 = rgb(152, 152, 158);
                         BorderColor3 = rgb(0, 0, 0);
                         Text = tostring(option_data);
                         Parent = button;
@@ -5724,13 +5843,13 @@
 
                     library:connection(name.MouseEnter, function()
                         if cfg.current_element ~= name then
-                            library:tween(name, {TextColor3 = rgb(140, 140, 140)})
+                            library:tween(name, {TextColor3 = rgb(190, 190, 196)})
                         end
                     end)
 
                     library:connection(name.MouseLeave, function()
                         if cfg.current_element ~= name then
-                            library:tween(name, {TextColor3 = rgb(72, 72, 73)})
+                            library:tween(name, {TextColor3 = rgb(152, 152, 158)})
                         end
                     end)
                 end
@@ -6611,7 +6730,7 @@ do
     function library:SetEnabled(value)
         local enabled = value ~= false
         local root = control_root(self)
-        self.enabled = enabled
+        self.interactive = enabled
 
         if root then
             if not self.__enabled_blocker or not self.__enabled_blocker.Parent then
@@ -6887,7 +7006,7 @@ do
             BorderSizePixel = 0;
             ClearTextOnFocus = false;
             PlaceholderText = options.placeholder or "Search features";
-            PlaceholderColor3 = rgb(92, 92, 95);
+            PlaceholderColor3 = rgb(140, 140, 146);
             Text = "";
             TextColor3 = rgb(235, 235, 235);
             TextXAlignment = Enum.TextXAlignment.Left;
@@ -6918,7 +7037,7 @@ do
             surface = rgb(18, 18, 21);
             control = rgb(26, 26, 30);
             text = rgb(245, 245, 245);
-            muted = rgb(145, 145, 145);
+            muted = rgb(170, 170, 176);
         };
         Ocean = {
             accent = rgb(69, 154, 255);
@@ -6954,7 +7073,7 @@ do
             surface = rgb(27, 27, 27);
             control = rgb(38, 38, 38);
             text = rgb(245, 245, 245);
-            muted = rgb(145, 145, 145);
+            muted = rgb(170, 170, 176);
         };
     }
 
@@ -7009,7 +7128,7 @@ do
                         if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
                             if instance.TextColor3 == rgb(245, 245, 245) and data.text then
                                 instance.TextColor3 = data.text
-                            elseif instance.TextColor3 == rgb(145, 145, 145) and data.muted then
+                            elseif instance.TextColor3 == rgb(170, 170, 176) and data.muted then
                                 instance.TextColor3 = data.muted
                             end
                         end
@@ -7488,7 +7607,7 @@ do
             Position = dim2(1, 0, 0, 0);
             Size = dim2(0.3, 0, 0, 18);
             BackgroundTransparency = 1;
-            TextColor3 = rgb(145, 145, 145);
+            TextColor3 = rgb(170, 170, 176);
             TextXAlignment = Enum.TextXAlignment.Right;
             FontFace = fonts.small;
             TextSize = 13;
@@ -7632,7 +7751,7 @@ do
             Size = dim2(1, -84, 0, 17);
             BackgroundTransparency = 1;
             Text = options.game or game.Name;
-            TextColor3 = rgb(145, 145, 145);
+            TextColor3 = rgb(170, 170, 176);
             TextXAlignment = Enum.TextXAlignment.Left;
             TextTruncate = Enum.TextTruncate.AtEnd;
             FontFace = fonts.small;
@@ -7645,7 +7764,7 @@ do
             Size = dim2(1, -84, 0, 16);
             BackgroundTransparency = 1;
             Text = "";
-            TextColor3 = rgb(105, 105, 110);
+            TextColor3 = rgb(150, 150, 156);
             TextXAlignment = Enum.TextXAlignment.Left;
             FontFace = fonts.small;
             TextSize = 12;
