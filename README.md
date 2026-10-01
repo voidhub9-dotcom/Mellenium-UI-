@@ -5,7 +5,7 @@ A Roblox **Luau** UI library for script executors. Responsive windows that work 
 [![GitHub repository](https://img.shields.io/badge/GitHub-voidhub9--dotcom%2FMellenium--UI---181717?logo=github&logoColor=white)](https://github.com/voidhub9-dotcom/Mellenium-UI-)
 [![Roblox Luau](https://img.shields.io/badge/Roblox-Luau-00A2FF?logo=roblox&logoColor=white)](https://create.roblox.com/docs/luau)
 
-**Runtime:** Roblox executor environment. The library needs `getgenv`, `loadstring`, `game:HttpGet`, and the file functions `makefolder`, `isfolder`, `writefile`, `readfile`, `isfile`, `listfiles`, `delfile` (used only for configs). The UI is parented to `CoreGui`.
+**Runtime:** Roblox executor environment. The library needs `getgenv`, `loadstring`, `game:HttpGet`, and the file functions `makefolder`, `isfolder`, `writefile`, `readfile`, `isfile`, `listfiles`, `delfile` (used only for configs). The UI is parented to `gethui()` when the executor provides it and to `CoreGui` otherwise (see [Hidden UI container](#hidden-ui-container)).
 
 ## Contents
 
@@ -23,6 +23,7 @@ A Roblox **Luau** UI library for script executors. Responsive windows that work 
 - [Configs](#configs)
 - [Discord webhooks](#discord-webhooks)
 - [Plugins](#plugins)
+- [Hidden UI container](#hidden-ui-container)
 - [Cleanup](#cleanup)
 - [Project files](#project-files)
 
@@ -435,6 +436,15 @@ Library:Unload()
 ```
 
 Unloading closes the UI, stops autosave and timers, unloads plugins, disconnects every tracked listener and destroys the GUI roots, including the lock and mobile toggle.
+
+## Hidden UI container
+
+Every ScreenGui the library creates (window, popups, padlock, floating toggle) goes into `gethui()` when the executor has it, which keeps the UI out of `CoreGui` scans. If `gethui` is missing or errors, it falls back to `CoreGui`.
+
+```lua
+getgenv().VoidHubUseGetHui = false   -- set before loading the library to force CoreGui
+print(Library.ui_parent)             -- the container actually in use
+```
 
 ## Project files
 

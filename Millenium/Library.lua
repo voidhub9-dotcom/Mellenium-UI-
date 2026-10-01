@@ -15,7 +15,21 @@
     local lighting = game:GetService("Lighting")
     local run = game:GetService("RunService")
     local stats = game:GetService("Stats")
-    local coregui = (typeof(_G) == "table" and typeof(_G.MELLENIUM_PARENT) == "Instance" and _G.MELLENIUM_PARENT) or game:GetService("CoreGui")
+    local coregui = game:GetService("CoreGui")
+    do
+        local environment = typeof(getgenv) == "function" and getgenv() or _G
+        if typeof(_G) == "table" and typeof(_G.MELLENIUM_PARENT) == "Instance" then
+            coregui = _G.MELLENIUM_PARENT
+        elseif environment.VoidHubUseGetHui ~= false then
+            local hidden_ui = environment.gethui or gethui
+            if type(hidden_ui) == "function" then
+                local ok, container = pcall(hidden_ui)
+                if ok and typeof(container) == "Instance" then
+                    coregui = container
+                end
+            end
+        end
+    end
     local debris = game:GetService("Debris")
     local tween_service = game:GetService("TweenService")
     local sound_service = game:GetService("SoundService")
@@ -93,6 +107,7 @@
             "/fonts",
             "/configs",
         },
+        ui_parent = coregui,
         flags = {},
         config_flags = {},
         connections = {},   
