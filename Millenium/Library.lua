@@ -6960,15 +6960,27 @@ do
     }
 
     local function get_request_function()
-        local environment = getgenv and getgenv() or _G
-        local syn_table = environment and environment.syn
-        local http_table = environment and environment.http
+        local environment
+        if typeof(getgenv) == "function" then
+            local ok, env = pcall(getgenv)
+            environment = ok and type(env) == "table" and env or _G
+        else
+            environment = _G
+        end
+        local syn_table = type(environment.syn) == "table" and environment.syn
+        local http_table = type(environment.http) == "table" and environment.http
 
-        return (environment and (environment.request or environment.http_request))
+        local fn = environment.request
+            or environment.http_request
             or (syn_table and syn_table.request)
             or (http_table and http_table.request)
-            or request
-            or http_request
+        if type(fn) == "function" then return fn end
+        -- bare-global fallbacks (executors that inject into script _ENV)
+        local ok_r, r = pcall(function() return request end)
+        if ok_r and type(r) == "function" then return r end
+        local ok_h, h = pcall(function() return http_request end)
+        if ok_h and type(h) == "function" then return h end
+        return nil
     end
 
     local function valid_webhook_url(url)
@@ -7070,29 +7082,50 @@ do
         webhook_state.busy = true
 
         task.spawn(function()
-            while #webhook_state.queue > 0 and not extension.unloading do
-                local wait_for = webhook_state.min_interval - (os.clock() - webhook_state.last_sent)
-                if wait_for > 0 then
-                    task.wait(wait_for)
+            local ok, loop_err = pcall(function()
+                while #webhook_state.queue > 0 and not extension.unloading do
+                    local url = webhook_state.url
+                    if not url then
+                        table.clear(webhook_state.queue)
+                        break
+                    end
+
+                    local wait_for = webhook_state.min_interval - (os.clock() - webhook_state.last_sent)
+                    if wait_for > 0 then
+                        task.wait(wait_for)
+                    end
+
+                    -- re-check after wait in case unload/clear happened
+                    url = webhook_state.url
+                    if not url or extension.unloading then
+                        table.clear(webhook_state.queue)
+                        break
+                    end
+
+                    local job = table.remove(webhook_state.queue, 1)
+                    local sent, err, retry_after = request_webhook(url, job.payload)
+
+                    if not sent and retry_after then
+                        task.wait(math.min(retry_after, 30))
+                        url = webhook_state.url
+                        if url and not extension.unloading then
+                            sent, err = request_webhook(url, job.payload)
+                        end
+                    end
+
+                    webhook_state.last_sent = os.clock()
+                    webhook_state.last_error = sent and nil or err
+
+                    if job.callback then
+                        pcall(job.callback, sent, err)
+                    end
                 end
-
-                local job = table.remove(webhook_state.queue, 1)
-                local sent, err, retry_after = request_webhook(webhook_state.url, job.payload)
-
-                if not sent and retry_after then
-                    task.wait(math.min(retry_after, 30))
-                    sent, err = request_webhook(webhook_state.url, job.payload)
-                end
-
-                webhook_state.last_sent = os.clock()
-                webhook_state.last_error = sent and nil or err
-
-                if job.callback then
-                    pcall(job.callback, sent, err)
-                end
-            end
+            end)
 
             webhook_state.busy = false
+            if not ok then
+                webhook_state.last_error = "pump error: " .. tostring(loop_err)
+            end
         end)
     end
 
