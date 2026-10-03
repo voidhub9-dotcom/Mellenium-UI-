@@ -870,6 +870,29 @@
             end
         end)
 
+            function library:resolve_icon(value)
+                if type(value) == "number" then
+                    if value <= 0 then return nil end
+                    return "rbxassetid://" .. tostring(floor(value))
+                end
+
+                if type(value) ~= "string" then return nil end
+                value = value:match("^%s*(.-)%s*$")
+                if value == "" then return nil end
+
+                local asset_id = value:match("^(%d+)$")
+                    or value:match("^[Rr][Bb][Xx][Aa][Ss][Ss][Ee][Tt][Ii][Dd]://(%d+)$")
+                if not asset_id and value:lower():match("^https?://www%.roblox%.com/asset/") then
+                    asset_id = value:match("[?&]id=(%d+)")
+                end
+                if asset_id then
+                    return "rbxassetid://" .. asset_id
+                end
+
+                return value
+            end
+
+
         function library:create(instance, options)
             local ins = Instance.new(instance) 
             
@@ -1139,33 +1162,12 @@
             local lower_dpi = max(0.1, min(dpi_min, dpi_max))
             local upper_dpi = max(lower_dpi, dpi_max)
 
-            local function normalize_brand_icon(value)
-                if type(value) == "number" then
-                    if value <= 0 then return nil end
-                    return "rbxassetid://" .. tostring(floor(value))
-                end
-
-                if type(value) ~= "string" then return nil end
-                value = value:match("^%s*(.-)%s*$")
-                if value == "" then return nil end
-
-                local asset_id = value:match("^(%d+)$")
-                    or value:match("^[Rr][Bb][Xx][Aa][Ss][Ss][Ee][Tt][Ii][Dd]://(%d+)$")
-                if not asset_id and value:lower():match("^https?://www%.roblox%.com/asset/") then
-                    asset_id = value:match("[?&]id=(%d+)")
-                end
-                if asset_id then
-                    return "rbxassetid://" .. asset_id
-                end
-
-                return value
-            end
 
             local game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI"
             local cfg = { 
                 suffix = properties.suffix or properties.Suffix or "UI";
                 name = properties.name or properties.Name or "VoidHub";
-                icon = normalize_brand_icon(properties.icon or properties.Icon or properties.logo or properties.Logo);
+                icon = library:resolve_icon(properties.icon or properties.Icon or properties.logo or properties.Logo);
                 footer = properties.footer or properties.Footer or properties.version or properties.Version;
                 game_name = game_name;
                 subtitle = properties.subtitle or properties.Subtitle or properties.sub_title or properties.subTitle or game_name;
@@ -2213,9 +2215,10 @@
         end 
 
         function library:tab(properties)
+            properties = properties or {}
             local cfg = {
                 name = properties.name or properties.Name or "visuals"; 
-                icon = properties.icon or properties.Icon or properties.image or properties.Image or "http://www.roblox.com/asset/?id=6034767608";
+                icon = library:resolve_icon(properties.icon or properties.Icon or properties.image or properties.Image) or "rbxassetid://6034767608";
                 
                 -- multi 
                 tabs = properties.tabs or properties.Tabs or {"Main", "Misc.", "Settings"};
@@ -2249,6 +2252,8 @@
                         BackgroundTransparency = 1;
                         Name = "\0";
                         Size = dim2(1, 0, 0, 36);
+                        LayoutOrder = #(self.tabs or {}) + 1;
+                        ClipsDescendants = true;
                         BorderSizePixel = 0;
                         TextSize = 16;
                         BackgroundColor3 = themes.preset.accent
@@ -2263,7 +2268,8 @@
                         BackgroundTransparency = 1;
                         Position = dim2(0, 10, 0.5, 0);
                         Name = "\0";
-                        Size = dim2(0, 22, 0, 22);
+                        Size = dim2(0, 20, 0, 20);
+                        ScaleType = Enum.ScaleType.Fit;
                         BorderSizePixel = 0;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
@@ -2275,13 +2281,14 @@
                         Text = cfg.name;
                         Parent = items[ "button" ];
                         Name = "\0";
-                        Size = dim2(0, 0, 1, 0);
+                        Size = dim2(1, -48, 1, 0);
                         Position = dim2(0, 40, 0, 0);
                         BackgroundTransparency = 1;
                         TextXAlignment = Enum.TextXAlignment.Left;
                         BorderSizePixel = 0;
-                        AutomaticSize = Enum.AutomaticSize.X;
-                        TextSize = 16;
+                        TextTruncate = Enum.TextTruncate.AtEnd;
+                        TextWrapped = false;
+                        TextSize = 15;
                         BackgroundColor3 = rgb(255, 255, 255)
                     });
                     
@@ -2338,13 +2345,14 @@
                         PaddingLeft = dim(0, 7)
                     });                        
 
-                    for _, section in cfg.tabs do
+                    for section_index, section in ipairs(cfg.tabs) do
                         local section_name = type(section) == "table"
                             and (section.name or section.Name or section.title or section.Title or "Main")
                             or tostring(section)
                         local section_icon = type(section) == "table"
                             and (section.icon or section.Icon or section.image or section.Image)
                             or nil
+                        section_icon = library:resolve_icon(section_icon)
                         local data = {items = {}} 
 
                         local multi_items = data.items; do 
@@ -2358,6 +2366,7 @@
                                     Parent = items[ "multi_section_button_holder" ];
                                     Name = "\0";
                                     Size = dim2(0, 0, 0, 32);
+                                    LayoutOrder = section_index;
                                     BackgroundTransparency = 1;
                                     ClipsDescendants = true;
                                     BorderSizePixel = 0;
@@ -2385,21 +2394,24 @@
                                     BackgroundTransparency = 1;
                                     TextXAlignment = Enum.TextXAlignment.Left;
                                     BorderSizePixel = 0;
-                                    AutomaticSize = Enum.AutomaticSize.XY;
+                                    AutomaticSize = Enum.AutomaticSize.X;
+                                    LayoutOrder = 2;
                                     TextSize = 16;
                                     BackgroundColor3 = rgb(255, 255, 255)
                                 });
                                 
-                                library:create( "UIPadding" , {
-                                    Parent = multi_items[ "name" ];
-                                    PaddingRight = dim(0, 5);
-                                    PaddingLeft = dim(0, 5)
+                                library:create("UIListLayout", {
+                                    Parent = multi_items["button"];
+                                    FillDirection = Enum.FillDirection.Horizontal;
+                                    VerticalAlignment = Enum.VerticalAlignment.Center;
+                                    SortOrder = Enum.SortOrder.LayoutOrder;
+                                    Padding = dim(0, 8)
                                 });
                                 
                                 multi_items[ "accent" ] = library:create( "Frame" , {
                                     BorderColor3 = rgb(0, 0, 0);
                                     AnchorPoint = vec2(0, 1);
-                                    Parent = multi_items[ "button" ];
+                                    Parent = library.cache;
                                     BackgroundTransparency = 1;
                                     Position = dim2(0, 10, 1, 4);
                                     Name = "\0";
@@ -2430,15 +2442,15 @@
                                     multi_items[ "icon" ] = library:create( "ImageLabel" , {
                                         Parent = multi_items[ "button" ];
                                         Image = section_icon;
+                                        ScaleType = Enum.ScaleType.Fit;
+                                        LayoutOrder = 1;
                                         ImageColor3 = rgb(142, 142, 142);
                                         Position = dim2(0, 8, 0.5, -8);
                                         Size = dim2(0, 16, 0, 16);
                                         BackgroundTransparency = 1;
                                         BorderSizePixel = 0
                                     })
-                                    library:apply_theme(multi_items[ "icon" ], "accent", "ImageColor3")
-                                    multi_items[ "name" ].Position = dim2(0, 28, 0, 0)
-                                    multi_items[ "name" ].Size = dim2(0, -28, 1, 0)
+
                                 end
 
                             -- Tab 
@@ -2479,6 +2491,7 @@
                         data.accent = multi_items[ "accent" ]
                         data.button = multi_items[ "button" ]
                         data.stroke = multi_items[ "stroke" ]
+                        data.icon = multi_items[ "icon" ]
                         data.page = multi_items[ "tab" ]
                         data.parent = setmetatable(data, library):sub_tab({}).items[ "tab_parent" ]
                         
@@ -2502,6 +2515,7 @@
                                 library:tween(page.button, {BackgroundTransparency = 1})
                                 library:tween(page.stroke, {Transparency = 1})
 
+                                if page.icon then page.icon.ImageColor3 = rgb(142, 142, 142) end
                                 page.page.Visible = false
                                 page.page.Parent = library[ "cache" ] 
                             end 
@@ -2512,6 +2526,7 @@
                             library:tween(data.stroke, {Transparency = 0})
                             library:tween(data.page, {Size = dim2(1, 0, 1, 0)}, Enum.EasingStyle.Quad, 0.4)
 
+                            if data.icon then data.icon.ImageColor3 = rgb(255, 255, 255) end
                             data.page.Visible = true
                             data.page.Parent = items["tab_holder"]
 
@@ -3228,10 +3243,15 @@
                     CornerRadius = dim(0, 7)
                 });
 
-                items[ "tabs" ] = library:create( "Frame" , {
+                items[ "tabs" ] = library:create( "ScrollingFrame" , {
                     Parent = items[ "outline" ];
                     Position = dim2(0, 1, 0, 1);
                     Size = dim2(1, -2, 0, 35);
+                    ScrollingDirection = Enum.ScrollingDirection.X;
+                    AutomaticCanvasSize = Enum.AutomaticSize.X;
+                    CanvasSize = dim2(0, 0, 0, 0);
+                    ScrollBarThickness = 2;
+                    ScrollBarImageColor3 = rgb(90, 90, 90);
                     BackgroundColor3 = rgb(17, 17, 17);
                     BorderColor3 = rgb(0, 0, 0);
                     BorderSizePixel = 0;
@@ -3283,7 +3303,7 @@
 
                 local data = {
                     name = options.name or options.Name or "Tab";
-                    icon = options.icon or options.Icon or options.image or options.Image;
+                    icon = library:resolve_icon(options.icon or options.Icon or options.image or options.Image);
                     items = {};
                 }
 
@@ -3293,6 +3313,7 @@
                         Text = "";
                         AutoButtonColor = false;
                         Size = dim2(0, 0, 0, 27);
+                        LayoutOrder = #cfg.tabs + 1;
                         AutomaticSize = Enum.AutomaticSize.X;
                         BackgroundColor3 = rgb(17, 17, 17);
                         BorderColor3 = rgb(0, 0, 0);
@@ -3304,17 +3325,32 @@
                         CornerRadius = dim(0, 5)
                     });
 
+                    library:create("UIListLayout", {
+                        Parent = tab_items["button"];
+                        FillDirection = Enum.FillDirection.Horizontal;
+                        VerticalAlignment = Enum.VerticalAlignment.Center;
+                        SortOrder = Enum.SortOrder.LayoutOrder;
+                        Padding = dim(0, 6)
+                    });
+                    library:create("UIPadding", {
+                        Parent = tab_items["button"];
+                        PaddingLeft = dim(0, 8);
+                        PaddingRight = dim(0, 8)
+                    });
+
                     if data.icon then
                         tab_items[ "icon" ] = library:create( "ImageLabel" , {
                             Parent = tab_items[ "button" ];
                             Image = data.icon;
+                            ScaleType = Enum.ScaleType.Fit;
+                            LayoutOrder = 1;
                             ImageColor3 = rgb(170, 170, 176);
                             Position = dim2(0, 8, 0.5, -8);
                             Size = dim2(0, 16, 0, 16);
                             BackgroundTransparency = 1;
                             BorderSizePixel = 0
                         });
-                        library:apply_theme(tab_items[ "icon" ], "accent", "ImageColor3");
+
                     end
 
                     tab_items[ "label" ] = library:create( "TextLabel" , {
@@ -3324,6 +3360,7 @@
                         AutomaticSize = Enum.AutomaticSize.X;
                         BackgroundTransparency = 1;
                         Text = data.name;
+                        LayoutOrder = 2;
                         TextColor3 = rgb(170, 170, 176);
                         FontFace = fonts.small;
                         TextSize = 13;
@@ -3361,10 +3398,14 @@
                 function data:open()
                     if cfg.current_tab then
                         cfg.current_tab.items[ "page" ].Visible = false
+                        cfg.current_tab.items["button"].BackgroundColor3 = rgb(17, 17, 17)
+                        if cfg.current_tab.items["icon"] then cfg.current_tab.items["icon"].ImageColor3 = rgb(170, 170, 176) end
                         cfg.current_tab.items[ "label" ].TextColor3 = rgb(170, 170, 176)
                     end
 
                     cfg.current_tab = data
+                    tab_items["button"].BackgroundColor3 = rgb(40, 40, 40)
+                    if tab_items["icon"] then tab_items["icon"].ImageColor3 = rgb(255, 255, 255) end
                     tab_items[ "page" ].Visible = true
                     tab_items[ "label" ].TextColor3 = rgb(255, 255, 255)
                     task.defer(function()
