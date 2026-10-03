@@ -1139,11 +1139,33 @@
             local lower_dpi = max(0.1, min(dpi_min, dpi_max))
             local upper_dpi = max(lower_dpi, dpi_max)
 
+            local function normalize_brand_icon(value)
+                if type(value) == "number" then
+                    if value <= 0 then return nil end
+                    return "rbxassetid://" .. tostring(floor(value))
+                end
+
+                if type(value) ~= "string" then return nil end
+                value = value:match("^%s*(.-)%s*$")
+                if value == "" then return nil end
+
+                local asset_id = value:match("^(%d+)$")
+                    or value:match("^[Rr][Bb][Xx][Aa][Ss][Ss][Ee][Tt][Ii][Dd]://(%d+)$")
+                if not asset_id and value:lower():match("^https?://www%.roblox%.com/asset/") then
+                    asset_id = value:match("[?&]id=(%d+)")
+                end
+                if asset_id then
+                    return "rbxassetid://" .. asset_id
+                end
+
+                return value
+            end
+
             local game_name = properties.gameInfo or properties.game_info or properties.GameInfo or "VoidHub UI"
             local cfg = { 
                 suffix = properties.suffix or properties.Suffix or "UI";
                 name = properties.name or properties.Name or "VoidHub";
-                icon = properties.icon or properties.Icon or properties.logo or properties.Logo;
+                icon = normalize_brand_icon(properties.icon or properties.Icon or properties.logo or properties.Logo);
                 footer = properties.footer or properties.Footer or properties.version or properties.Version;
                 game_name = game_name;
                 subtitle = properties.subtitle or properties.Subtitle or properties.sub_title or properties.subTitle or game_name;
@@ -1487,10 +1509,14 @@
                         Parent = items[ "logo" ];
                         BackgroundTransparency = 1;
                         BorderSizePixel = 0;
-                        Position = dim2(0, 5, 0, 5);
-                        Size = dim2(1, -10, 1, -10);
+                        AnchorPoint = vec2(0.5, 0.5);
+                        Position = dim2(0.5, 0, 0.5, 0);
+                        Size = dim2(1, -8, 1, -8);
                         Image = cfg.icon;
-                        ImageColor3 = rgb(10, 10, 10);
+                        ImageColor3 = rgb(255, 255, 255);
+                        ImageTransparency = 0;
+                        ScaleType = Enum.ScaleType.Fit;
+                        ResampleMode = Enum.ResamplerMode.Default;
                     });
                 else
                     items[ "logo_letter" ] = library:create( "TextLabel" , {
