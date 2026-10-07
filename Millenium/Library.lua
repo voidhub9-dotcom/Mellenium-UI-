@@ -123,12 +123,13 @@
 
         utility = {
             accent = {
-                BackgroundColor3 = {}, 	
-                TextColor3 = {}, 
-                ImageColor3 = {}, 
-                ScrollBarImageColor3 = {} 
+                BackgroundColor3 = {},
+                TextColor3 = {},
+                ImageColor3 = {},
+                ScrollBarImageColor3 = {}
             },
-        }
+        },
+        hooks = {},
     }
 
     local keys = {
@@ -789,17 +790,21 @@
         end
 
         function library:update_theme(theme, color)
-            for _, property in themes.utility[theme] do 
+            for _, property in themes.utility[theme] do
 
-                for m, object in property do 
-                    if object[_] == themes.preset[theme] then 
-                        object[_] = color 
-                    end 
-                end 
-            end 
+                for m, object in property do
+                    if object[_] == themes.preset[theme] then
+                        object[_] = color
+                    end
+                end
+            end
 
-            themes.preset[theme] = color 
-        end 
+            themes.preset[theme] = color
+
+            for _, hook in themes.hooks do
+                pcall(hook, theme, color)
+            end
+        end
 
         function library:connection(signal, callback)
             local connection = signal:Connect(callback)
@@ -1527,10 +1532,18 @@
                         BorderSizePixel = 0;
                         Size = dim2(1, 0, 1, 0);
                         Text = string.upper(string.sub(cfg.name, 1, 1));
-                        TextColor3 = rgb(10, 10, 10);
+                        TextColor3 = library:on_accent(themes.preset.accent);
+                        TextXAlignment = Enum.TextXAlignment.Center;
+                        TextYAlignment = Enum.TextYAlignment.Center;
                         FontFace = fonts.font;
                         TextSize = 18;
                     });
+                    local logo_letter_ref = items[ "logo_letter" ]
+                    insert(themes.hooks, function(theme, color)
+                        if theme == "accent" and logo_letter_ref and logo_letter_ref.Parent then
+                            logo_letter_ref.TextColor3 = library:on_accent(color)
+                        end
+                    end)
                 end
 
                 items[ "title" ] = library:create( "TextLabel" , {
