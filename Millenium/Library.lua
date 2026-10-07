@@ -1512,7 +1512,7 @@
                 });
 
                 if cfg.icon then
-                    items[ "logo_image" ] = library:create( "ImageLabel" , {
+                    local ok, logo_img = pcall(library.create, library, "ImageLabel", {
                         Parent = items[ "logo" ];
                         BackgroundTransparency = 1;
                         BorderSizePixel = 0;
@@ -1523,9 +1523,12 @@
                         ImageColor3 = rgb(255, 255, 255);
                         ImageTransparency = 0;
                         ScaleType = Enum.ScaleType.Fit;
-                        ResampleMode = Enum.ResamplerMode.Default;
-                    });
-                else
+                    })
+                    if ok and logo_img then
+                        items[ "logo_image" ] = logo_img
+                    end
+                end
+                if not items[ "logo_image" ] then
                     items[ "logo_letter" ] = library:create( "TextLabel" , {
                         Parent = items[ "logo" ];
                         BackgroundTransparency = 1;
